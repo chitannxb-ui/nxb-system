@@ -1,0 +1,23 @@
+# =======================================================
+# .gitignore - Tối ưu hóa Token cho Gemini Code Assist
+# CHỈ GIỮ LẠI FILE .PY VÀ .SQL
+# =======================================================
+
+# 1. Chặn hoàn toàn các thư mục hệ thống, thư mục build và môi trường ảo
+__pycache__/
+AI_Temp/
+build/
+dist/
+logs/
+poppler/
+venv/
+
+# 2. Chặn các file tài liệu, ảnh, slide cấu hình không liên quan trong hình
+*.txt
+*.ico
+*.png
+*.pptx
+*.spec
+
+# 3. Đảm bảo giữ lại file cấu hình gitignore này
+!.gitignore
