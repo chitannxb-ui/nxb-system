@@ -18,6 +18,6 @@ venv/
 *.png
 *.pptx
 *.spec
-
+*.ini
 # 3. Đảm bảo giữ lại file cấu hình gitignore này
 !.gitignore

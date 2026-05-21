@@ -149,9 +149,9 @@ class MainWindow(QMainWindow):
         self.btn_config.setObjectName("MenuButtonActive" if index == 5 else "MenuButton")
         self.setStyleSheet(self.styleSheet())
         
-        # Đồng bộ nạp lại các Preset AI cho đúng trang tương ứng khi click chuyển Tab
-        if index == 0: self.page_assistant.load_ai_presets() # Nạp cho trợ lý khi ở index 0
-        elif index == 1: pass # Trang OCR tự nạp ngầm khi khởi chạy ứng dụng
+        # Đồng bộ gọi hàm load preset AI chuẩn xác theo thực thể lớp trang tương ứng
+        if index == 0: self.page_assistant.load_ai_presets()
+        elif index == 1: pass # Trang OCR nạp kết nối tự động khi khởi tạo luồng xử lý
         elif index == 2: self.page_search.load_ai_presets()
         elif index == 3: self.page_split.load_ai_presets()
         elif index == 4: self.page_rename.load_ai_presets()
