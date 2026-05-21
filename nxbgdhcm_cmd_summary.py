@@ -55,11 +55,11 @@ if not os.path.exists(LOGS_DIR):
 SESSION_LOG_FILE = os.path.join(LOGS_DIR, f"summary_{datetime.now().strftime('%y%m%d-%H%M%S')}.log")
 
 # Mặc định kết nối CSDL (sẽ bị ghi đè bởi sql.ini)
-DB_USER = "nxbgdhcm"
-DB_PASS = "chitan1811"
-DB_HOST = "192.168.192.12"
+DB_USER = ""
+DB_PASS = ""
+DB_HOST = ""
 DB_PORT = 3306
-DB_NAME = "nxbgdhcm_vanban"
+DB_NAME = ""
 
 # ==========================================
 # HÀM BẮT SỰ KIỆN CTRL+C (GRACEFUL EXIT)
@@ -107,10 +107,11 @@ def log(message, level="info"):
 # HÀM XỬ LÝ MYSQL
 # ==========================================
 def init_sql_config():
-    global DB_HOST, DB_PORT, DB_NAME
+    global DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
     if not os.path.exists(SQL_INI_FILE):
-        log(f"[CANH BAO] Không tìm thấy {SQL_INI_FILE}. Đang dùng cấu hình mặc định.", "warning")
-        return
+        log(f"[CANH BAO] Không tìm thấy {SQL_INI_FILE}. Đang tạo cấu hình mẫu.", "warning")
+        with open(SQL_INI_FILE, "w", encoding="utf-8") as f:
+            f.write("ip: 192.168.192.12\nport: 3306\nuser: nxbgdhcm\npass: chitan1811\ndatabase: nxbgdhcm_vanban\n")
     try:
         with open(SQL_INI_FILE, "r", encoding="utf-8") as f:
             for line in f:
@@ -120,6 +121,8 @@ def init_sql_config():
                     v = v.strip()
                     if k == "ip": DB_HOST = v
                     elif k == "port": DB_PORT = int(v) if v.isdigit() else 3306
+                    elif k == "user": DB_USER = v
+                    elif k == "pass": DB_PASS = v
                     elif k == "database": DB_NAME = v
     except Exception as e:
         log(f"[LOI] Lỗi đọc file sql.ini: {e}", "error")

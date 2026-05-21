@@ -19,7 +19,7 @@ APPDATA_DIR = os.path.join(_appdata, "NXBGDHCM_OCR")
 if not os.path.exists(APPDATA_DIR): os.makedirs(APPDATA_DIR)
 KEY_FILE = os.path.join(APPDATA_DIR, "nhanviennxbgdhcm.json")
 
-DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME = "192.168.192.12", 3306, "nxbgdhcm", "chitan1811", "nxbgdhcm_vanban"
+DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME = "", 3306, "", "", ""
 
 class DBManager:
     def __init__(self):
@@ -47,19 +47,24 @@ class DBManager:
         return self.person_key, self.mac_address, self.computer_name, self.user_name
 
     def load_sql_ini(self):
-        global DB_HOST, DB_PORT, DB_NAME
+        global DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
         if not os.path.exists(SQL_INI_FILE):
             try:
-                with open(SQL_INI_FILE, "w", encoding="utf-8") as f: f.write("ip: 192.168.192.12\nport: 3306\ndatabase: nxbgdhcm_vanban\n")
+                with open(SQL_INI_FILE, "w", encoding="utf-8") as f: 
+                    f.write("ip: 192.168.192.12\nport: 3306\nuser: nxbgdhcm\npass: chitan1811\ndatabase: nxbgdhcm_vanban\n")
             except: pass
         try:
             with open(SQL_INI_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     if ":" in line:
                         k, v = line.split(":", 1)
-                        if k.strip().lower() == "ip": DB_HOST = v.strip()
-                        elif k.strip().lower() == "port": DB_PORT = int(v.strip()) if v.strip().isdigit() else 3306
-                        elif k.strip().lower() == "database": DB_NAME = v.strip()
+                        k = k.strip().lower()
+                        v = v.strip()
+                        if k == "ip": DB_HOST = v
+                        elif k == "port": DB_PORT = int(v) if v.isdigit() else 3306
+                        elif k == "user": DB_USER = v
+                        elif k == "pass": DB_PASS = v
+                        elif k == "database": DB_NAME = v
         except: pass
 
     def get_connection(self, include_db=True, timeout=5):

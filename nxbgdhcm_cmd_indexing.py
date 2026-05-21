@@ -85,11 +85,11 @@ if not os.path.exists(LOGS_DIR):
     os.makedirs(LOGS_DIR)
 SESSION_LOG_FILE = os.path.join(LOGS_DIR, datetime.now().strftime("%y%m%d-%H%M%S.log"))
 
-DB_USER = "nxbgdhcm"
-DB_PASS = "chitan1811"
-DB_HOST = "192.168.192.12"
+DB_USER = ""
+DB_PASS = ""
+DB_HOST = ""
 DB_PORT = 3306
-DB_NAME = "nxbgdhcm_vanban"
+DB_NAME = ""
 PERSON_KEY = ""
 
 # ==========================================
@@ -159,10 +159,10 @@ def init_person_key():
     return mac_address, computer_name, user_name
 
 def init_sql_config():
-    global DB_HOST, DB_PORT, DB_NAME
+    global DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
     if not os.path.exists(SQL_INI_FILE):
         with open(SQL_INI_FILE, "w", encoding="utf-8") as f:
-            f.write("ip: 192.168.192.12\nport: 3306\ndatabase: nxbgdhcm_vanban\n")
+            f.write("ip: 192.168.192.12\nport: 3306\nuser: nxbgdhcm\npass: chitan1811\ndatabase: nxbgdhcm_vanban\n")
     try:
         with open(SQL_INI_FILE, "r", encoding="utf-8") as f:
             for line in f:
@@ -172,6 +172,8 @@ def init_sql_config():
                     v = v.strip()
                     if k == "ip": DB_HOST = v
                     elif k == "port": DB_PORT = int(v) if v.isdigit() else 3306
+                    elif k == "user": DB_USER = v
+                    elif k == "pass": DB_PASS = v
                     elif k == "database": DB_NAME = v
     except Exception as e:
         log(f"[CANH BAO] Lỗi đọc file sql.ini: {e}", "warning")
