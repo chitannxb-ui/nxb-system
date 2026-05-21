@@ -9,7 +9,7 @@ from PyQt6.QtGui import QPixmap, QColor, QBrush, QFont, QKeyEvent
 
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_core_logic import TEMP_DIR
-from nxbgdhcm_ui_utils import setup_shared_ai_combobox, THEME
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox, THEME, TestConnectionWorker
 
 class CustomTableWidget(QTableWidget):
     hotkey_pressed = pyqtSignal(str) 

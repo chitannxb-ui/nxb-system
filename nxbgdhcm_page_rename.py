@@ -11,12 +11,6 @@ from PyQt6.QtGui import QColor, QBrush, QFont, QKeyEvent
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_ui_utils import setup_shared_ai_combobox
 
-THEME = {
-    "header_bg": "#F8CBA6", "accent_green": "#10B981", "accent_red": "#ef4444", "border_color": "#E5B289", 
-    "text_dark": "#333333", "text_light": "#FFFFFF",
-    "row_accepted": "#dcfce7", "row_success": "#f3f4f6", "text_success": "#9ca3af"
-}
-
 # LỚP MỚI: BẮT SỰ KIỆN PHÍM SPACE TRÊN BẢNG
 class CustomRenameTableWidget(QTableWidget):
     space_pressed = pyqtSignal() 
