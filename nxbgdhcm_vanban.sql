@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th5 20, 2026 lúc 11:18 AM
+-- Thời gian đã tạo: Th5 21, 2026 lúc 08:26 AM
 -- Phiên bản máy phục vụ: 12.2.2-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -32,6 +32,19 @@ CREATE TABLE `cau_hinh` (
   `Key_Name` varchar(255) NOT NULL,
   `Value` text DEFAULT NULL,
   `Description` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `cau_hinh_prompt`
+--
+
+CREATE TABLE `cau_hinh_prompt` (
+  `Prompt_Key` varchar(50) NOT NULL COMMENT 'Khóa định danh câu lệnh prompt',
+  `Prompt_Content` text NOT NULL COMMENT 'Nội dung câu lệnh mẫu gửi cho AI',
+  `prompt_type` varchar(50) NOT NULL DEFAULT 'in_app' COMMENT 'Phân loại môi trường sử dụng',
+  `Description` varchar(255) DEFAULT NULL COMMENT 'Mô tả chi tiết công dụng'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -202,6 +215,12 @@ ALTER TABLE `cau_hinh`
   ADD PRIMARY KEY (`Person_key`,`Key_Name`);
 
 --
+-- Chỉ mục cho bảng `cau_hinh_prompt`
+--
+ALTER TABLE `cau_hinh_prompt`
+  ADD PRIMARY KEY (`Prompt_Key`);
+
+--
 -- Chỉ mục cho bảng `deleted_documents`
 --
 ALTER TABLE `deleted_documents`
@@ -260,6 +279,12 @@ ALTER TABLE `van_ban_mau`
 --
 -- AUTO_INCREMENT cho các bảng đã đổ
 --
+
+--
+-- AUTO_INCREMENT cho bảng `ket_noi_ai`
+--
+ALTER TABLE `ket_noi_ai`
+  MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `lich_su_ten_file`
