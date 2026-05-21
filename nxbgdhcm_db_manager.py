@@ -123,7 +123,8 @@ class DBManager:
         try:
             conn = self.get_connection()
             cursor = conn.cursor(pymysql.cursors.DictCursor)
-            cursor.execute("SELECT ID, Preset_Name, `Default` FROM ket_noi_ai")
+            # Đã thêm các trường cần thiết và điều kiện lọc person_key
+            cursor.execute("SELECT ID, Preset_Name, URL, Model_Name, API_Key, `Default`, person_key FROM ket_noi_ai WHERE person_key IS NULL OR person_key = %s", (self.person_key,))
             presets = list(cursor.fetchall()) 
             for p in presets: p["Is_Default"] = True if str(p.get("Default", "")).upper() in ["TRUE", "1", "YES"] else False
             return True, presets

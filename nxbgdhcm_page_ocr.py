@@ -8,25 +8,7 @@ from PyQt6.QtGui import QTextCursor, QPixmap
 
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_core_logic import TEMP_DIR
-from nxbgdhcm_ui_utils import setup_shared_ai_combobox
-
-THEME = {
-    "primary_bg": "#FCF9F2", "header_bg": "#F8CBA6", "accent_green": "#10B981", "accent_red": "#ef4444", "border_color": "#E5B289", 
-    "text_dark": "#333333", "text_light": "#FFFFFF", "input_bg": "#FFFFFF", 
-    "matrix_bg": "#FFFFFF", "matrix_text": "#2563eb",  
-    "log_info": "#000000", "log_system": "#c85a17", "log_success": "#10B981", "log_error": "#ef4444", "log_image_mode": "#d97706", 
-    "log_text_mode": "#2563eb", "log_warning": "#db2777"
-}
-
-class TestConnectionWorker(QThread):
-    result_signal = pyqtSignal(bool, str)
-    def __init__(self, logic, config):
-        super().__init__()
-        self.logic = logic
-        self.config = config
-    def run(self):
-        success, msg = self.logic.test_ai_connection(self.config['URL'], self.config['Model_Name'], self.config['API_Key'])
-        self.result_signal.emit(success, msg)
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox, THEME, TestConnectionWorker
 
 class ProcessingThread(QThread):
     log_signal = pyqtSignal(str, str)

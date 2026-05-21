@@ -9,33 +9,7 @@ from PyQt6.QtGui import QPixmap, QColor, QBrush, QFont, QKeyEvent
 
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_core_logic import TEMP_DIR
-from nxbgdhcm_ui_utils import setup_shared_ai_combobox
-
-THEME = {
-    "primary_bg": "#FCF9F2", "header_bg": "#F8CBA6", "accent_green": "#10B981", "accent_red": "#ef4444", "border_color": "#E5B289", 
-    "text_dark": "#333333", "text_light": "#FFFFFF", "input_bg": "#FFFFFF", 
-    "split_bg": "#6b7280", "blank_bg": "#f3f4f6",
-    # MÀU TỪNG TRẠNG THÁI CỦA TRANG
-    "eval_colors": {
-        "Trang trắng": "#ffffff",
-        "1 trang": "#fef08a",     # Vàng nhạt
-        "Trang đầu": "#bbf7d0",   # Xanh lá mạ
-        "Trang tiếp": "#86efac",  # Xanh lá vừa
-        "Trang cuối": "#4ade80",  # Xanh lá đậm
-        "Đang chờ...": "#FFFFFF",
-        "Không xác định": "#fecaca" # Đỏ nhạt
-    }
-}
-
-class TestConnectionWorker(QThread):
-    result_signal = pyqtSignal(bool, str)
-    def __init__(self, logic, config):
-        super().__init__()
-        self.logic = logic
-        self.config = config
-    def run(self):
-        success, msg = self.logic.test_ai_connection(self.config['URL'], self.config['Model_Name'], self.config['API_Key'])
-        self.result_signal.emit(success, msg)
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox, THEME
 
 class CustomTableWidget(QTableWidget):
     hotkey_pressed = pyqtSignal(str) 

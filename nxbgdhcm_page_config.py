@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor, QBrush # Import thêm QColor và QBrush để tô màu
 from nxbgdhcm_db_manager import db
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox
 
 class PageConfig(QWidget):
     def __init__(self, parent_main, shared_logic):
@@ -128,67 +129,10 @@ class PageConfig(QWidget):
         layout.addWidget(scroll)
 
     def _load_ai_presets_to_combo(self):
-        self.combo_ai_presets.blockSignals(True)
-        self.combo_ai_presets.clear()
-        
-        default_preset_index = -1
-        try:
-            conn = db.get_connection()
-            cursor = conn.cursor(pymysql.cursors.DictCursor)
-            query = """
-                SELECT ID, Preset_Name, URL, Model_Name, API_Key, `Default`, person_key 
-                FROM ket_noi_ai 
-                WHERE person_key IS NULL OR person_key = %s
-            """
-            cursor.execute(query, (db.person_key,))
-            presets = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            
-            for i, p in enumerate(presets):
-                is_default = str(p.get("Default", "")).upper() in ["TRUE", "1", "YES"]
-                display_name = p["Preset_Name"]
-                
-                if is_default:
-                    display_name = "⭐ " + display_name
-                
-                self.combo_ai_presets.addItem(display_name, userData=p)
-                
-                # Tô màu và in đậm cho Combobox theo yêu cầu
-                if p.get("person_key") is None:
-                    # Preset Hệ thống -> Màu xanh dương đậm
-                    self.combo_ai_presets.setItemData(i, QBrush(QColor("#1A365D")), Qt.ItemDataRole.ForegroundRole)
-                else:
-                    # Preset Cá nhân -> Màu xanh lá đậm
-                    self.combo_ai_presets.setItemData(i, QBrush(QColor("#059669")), Qt.ItemDataRole.ForegroundRole)
-                
-                if is_default:
-                    # Preset Mặc định -> In đậm
-                    font = QFont()
-                    font.setBold(True)
-                    self.combo_ai_presets.setItemData(i, font, Qt.ItemDataRole.FontRole)
-                
-                if self.current_preset_id and p["ID"] == self.current_preset_id:
-                    default_preset_index = i
-                elif default_preset_index == -1 and is_default:
-                    default_preset_index = i
-                    
-        except Exception as e:
-            print(f"Lỗi tải danh sách Preset AI: {e}")
-
-        self.combo_ai_presets.blockSignals(False)
-        
-        if self.combo_ai_presets.count() > 0:
-            if default_preset_index != -1:
-                self.combo_ai_presets.setCurrentIndex(default_preset_index)
-            else:
-                self.combo_ai_presets.setCurrentIndex(0)
-            self._on_ai_preset_selected(self.combo_ai_presets.currentIndex())
-        else:
-            self._clear_ai_fields()
-            self.current_preset_id = None
-            self.current_preset_is_global = False
-            self._update_ai_buttons_state()
+     setup_shared_ai_combobox(self.combo_ai_presets, store_full_dict=True)
+     # Nạp dữ liệu lên textbox cho mục đang chọn
+     if self.combo_ai_presets.count() > 0:
+         self._on_ai_preset_selected(self.combo_ai_presets.currentIndex())
 
     def _on_ai_preset_selected(self, index):
         if index == -1:

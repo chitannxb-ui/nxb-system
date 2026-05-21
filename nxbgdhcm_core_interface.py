@@ -9,11 +9,8 @@ from nxbgdhcm_page_search import PageSearch
 from nxbgdhcm_page_split import PageSplit
 from nxbgdhcm_page_rename import PageRename 
 from nxbgdhcm_page_config import PageConfig # Bước 1: Import trang cấu hình hệ thống vào giao diện chính
-
-THEME = {
-    "primary_bg": "#FCF9F2", "sidebar_bg": "#355C8E", "sidebar_active": "#1A365D", "header_bg": "#F8CBA6",
-    "accent_green": "#10B981", "border_color": "#E5B289", "text_dark": "#333333", "text_light": "#FFFFFF"
-}
+from nxbgdhcm_page_config import PageConfig
+from nxbgdhcm_ui_utils import THEME
 
 class MainWindow(QMainWindow):
     def __init__(self):
