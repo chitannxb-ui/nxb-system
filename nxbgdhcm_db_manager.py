@@ -92,7 +92,7 @@ class DBManager:
             cursor = conn.cursor()
             
             tables_sql = [
-                '''CREATE TABLE IF NOT EXISTS nguoi_dung (Person_key VARCHAR(255) PRIMARY KEY, Mac_Address VARCHAR(100), Computer_Name VARCHAR(255), User_Name VARCHAR(255), danh_xung VARCHAR(11) DEFAULT NULL, Ho_Va_Ten VARCHAR(255) DEFAULT '', Chuc_vu VARCHAR(255) DEFAULT '', Phong_Ban VARCHAR(255) DEFAULT '') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
+                '''CREATE TABLE IF NOT EXISTS nguoi_dung (Person_key VARCHAR(255) PRIMARY KEY, Mac_Address VARCHAR(100), Computer_Name VARCHAR(255), User_Name VARCHAR(255), danh_xung VARCHAR(11) DEFAULT NULL, Ho_Va_Ten VARCHAR(255) DEFAULT '', Chuc_vu VARCHAR(255) DEFAULT '', Phong_Ban VARCHAR(255) DEFAULT '', Cong_tac TEXT DEFAULT NULL, NV_Phong TEXT DEFAULT NULL, Chuc_danh_khac TEXT DEFAULT NULL, SYLL LONGTEXT DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS cau_hinh_prompt (Prompt_Key VARCHAR(50) PRIMARY KEY, Prompt_Content TEXT NOT NULL, prompt_type VARCHAR(50) NOT NULL DEFAULT 'in_app', Description VARCHAR(255) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS ket_noi_ai (ID INT(11) AUTO_INCREMENT PRIMARY KEY, Preset_Name VARCHAR(255), URL VARCHAR(500), Model_Name VARCHAR(100), API_Key VARCHAR(255), `Default` VARCHAR(10)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS loai_van_ban (ID INT(11) AUTO_INCREMENT PRIMARY KEY, Loai_VB VARCHAR(255) NOT NULL, Mo_ta VARCHAR(500) DEFAULT NULL, Tu_khoa VARCHAR(255) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
@@ -411,7 +411,7 @@ class DBManager:
         finally:
             if conn and conn.open: conn.close()
 
-def get_prompt(self, prompt_key):
+    def get_prompt(self, prompt_key):
         conn = None
         try:
             conn = self.get_connection()

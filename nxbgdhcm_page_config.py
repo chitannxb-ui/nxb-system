@@ -257,27 +257,26 @@ class PageConfig(QWidget):
             QMessageBox.warning(self, "Lỗi", "Vui lòng điền đầy đủ thông tin Preset AI.")
             return
 
+        conn = None
         try:
             conn = db.get_connection()
             cursor = conn.cursor()
             
             if self.current_preset_id is None:
-                cursor.execute("SELECT MAX(ID) FROM ket_noi_ai")
-                max_id_result = cursor.fetchone()
-                new_id = (max_id_result[0] + 1) if max_id_result and max_id_result[0] is not None else 1
-                
+                # SỬA: Bỏ truyền ID, để MySQL tự động sinh (AUTO_INCREMENT) chống đụng độ
                 query = """
-                    INSERT INTO ket_noi_ai (ID, Preset_Name, URL, Model_Name, API_Key, `Default`, person_key) 
-                    VALUES (%s, %s, %s, %s, %s, 'FALSE', %s)
+                    INSERT INTO ket_noi_ai (Preset_Name, URL, Model_Name, API_Key, `Default`, person_key) 
+                    VALUES (%s, %s, %s, %s, 'FALSE', %s)
                 """
-                cursor.execute(query, (new_id, preset_name, url, model_name, api_key, db.person_key))
-                self.current_preset_id = new_id
+                cursor.execute(query, (preset_name, url, model_name, api_key, db.person_key))
+                # Lấy ID vừa được MySQL tạo ra
+                self.current_preset_id = cursor.lastrowid
                 QMessageBox.information(self, "Thành công", "Đã lưu mới cấu hình AI của riêng bạn.")
             else:
                 if self.current_preset_is_global:
                     QMessageBox.warning(self, "Lỗi", "Không thể chỉnh sửa cấu hình hệ thống dùng chung.")
-                    cursor.close(); conn.close()
                     return
+                
                 query = """
                     UPDATE ket_noi_ai 
                     SET Preset_Name = %s, URL = %s, Model_Name = %s, API_Key = %s 
@@ -288,17 +287,19 @@ class PageConfig(QWidget):
                 
             conn.commit()
             cursor.close()
-            conn.close()
             self._load_ai_presets_to_combo()
             
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Không thể lưu cấu hình AI vào CSDL:\n{e}")
+        finally:
+            if conn and conn.open: conn.close() # SỬA: Đảm bảo luôn dọn dẹp Connection
 
     def _set_default_ai_preset(self):
         if self.current_preset_id is None or self.current_preset_is_global:
             QMessageBox.warning(self, "Lỗi", "Thao tác không hợp lệ trên Preset này.")
             return
 
+        conn = None
         try:
             conn = db.get_connection()
             cursor = conn.cursor()
@@ -307,18 +308,18 @@ class PageConfig(QWidget):
                            (self.current_preset_id, db.person_key))
             conn.commit()
             cursor.close()
-            conn.close()
             
             QMessageBox.information(self, "Thành công", "Đã đặt cấu hình này làm mặc định cá nhân của bạn.")
             self._load_ai_presets_to_combo()
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Không thể đặt cấu hình mặc định:\n{e}")
+        finally:
+            if conn and conn.open: conn.close()
 
     def _delete_ai_preset(self):
         if self.current_preset_id is None:
             QMessageBox.warning(self, "Lỗi", "Vui lòng chọn một Preset cá nhân để xóa.")
             return
-        
         if self.current_preset_is_global:
             QMessageBox.warning(self, "Lỗi", "Không thể xóa cấu hình hệ thống mặc định.")
             return
@@ -327,28 +328,30 @@ class PageConfig(QWidget):
                                      f"Bạn có chắc chắn muốn xóa vĩnh viễn cấu hình '{self.txt_preset_name.text()}'?",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
+            conn = None
             try:
                 conn = db.get_connection()
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM ket_noi_ai WHERE ID = %s AND person_key = %s", (self.current_preset_id, db.person_key))
                 conn.commit()
                 cursor.close()
-                conn.close()
                 
                 QMessageBox.information(self, "Thành công", "Đã xóa cấu hình AI cá nhân.")
                 self.current_preset_id = None
                 self._load_ai_presets_to_combo()
             except Exception as e:
                 QMessageBox.critical(self, "Lỗi", f"Không thể xóa cấu hình AI:\n{e}")
+            finally:
+                if conn and conn.open: conn.close()
 
     def _load_user_info(self):
+        conn = None
         try:
             conn = db.get_connection()
             cursor = conn.cursor(pymysql.cursors.DictCursor)
             cursor.execute("SELECT * FROM nguoi_dung WHERE Person_key = %s", (db.person_key,))
             user_info = cursor.fetchone()
             cursor.close()
-            conn.close()
             
             if user_info:
                 self.lbl_ho_ten.setText(user_info.get("Ho_Va_Ten") or "Chưa cập nhật")
@@ -365,3 +368,5 @@ class PageConfig(QWidget):
                     lbl.setText("N/A")
         except Exception as e:
             print(f"Lỗi tải dữ liệu hồ sơ nhân sự: {e}")
+        finally:
+            if conn and conn.open: conn.close()
