@@ -8,6 +8,7 @@ from PyQt6.QtGui import QTextCursor, QPixmap
 
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_core_logic import TEMP_DIR
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox
 
 THEME = {
     "primary_bg": "#FCF9F2", "header_bg": "#F8CBA6", "accent_green": "#10B981", "accent_red": "#ef4444", "border_color": "#E5B289", 
@@ -316,15 +317,11 @@ class PageOCR(QWidget):
         self.main_layout.addWidget(self.cols_splitter, 1)
 
     def init_backend(self):
-        success, presets = db.get_ai_presets()
-        if success and presets:
-            self.combo_server.blockSignals(True)
-            for p in presets:
-                self.combo_server.addItem(p["Preset_Name"], userData=p["ID"])
-                if p.get("Is_Default"): self.combo_server.setCurrentText(p["Preset_Name"])
-            self.combo_server.blockSignals(False)
-            self.add_log(f"Đã tải {len(presets)} Server AI.", "#10B981")
-        else: self.combo_server.addItem("Lỗi tải AI")
+        setup_shared_ai_combobox(self.combo_server, store_full_dict=False)
+        if self.combo_server.count() > 0:
+            self.add_log(f"Đã tải {self.combo_server.count()} Server AI.", "#10B981")
+        else:
+            self.combo_server.addItem("Lỗi tải AI")
 
     def on_combo_server_changed(self):
         name = self.combo_server.currentText()

@@ -11,6 +11,7 @@ from PyQt6.QtGui import QTextCursor, QPixmap, QColor, QFont, QBrush
 
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_core_logic import TEMP_DIR
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox
 
 EXT_COLORS = {
     "doc": "#2563eb", "docx": "#1d4ed8", "xls": "#059669", "xlsx": "#047857",     
@@ -462,14 +463,7 @@ class PageSearch(QWidget):
         self.main_layout.addWidget(self.cols_splitter, 1)
 
     def load_ai_presets(self):
-        self.combo_server.blockSignals(True)
-        self.combo_server.clear()
-        success, presets = db.get_ai_presets()
-        if success and presets:
-            for p in presets:
-                self.combo_server.addItem(p["Preset_Name"], userData=p["ID"])
-                if p.get("Is_Default"): self.combo_server.setCurrentText(p["Preset_Name"])
-        self.combo_server.blockSignals(False)
+        setup_shared_ai_combobox(self.combo_server, store_full_dict=False)
 
     def on_combo_server_changed(self):
         name = self.combo_server.currentText()
