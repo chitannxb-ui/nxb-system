@@ -2,9 +2,9 @@ import os
 import pymysql
 import pymysql.cursors
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, 
-                             QComboBox, QGroupBox, QScrollArea, QFormLayout, QMessageBox)
+                             QComboBox, QGroupBox, QScrollArea, QFormLayout, QMessageBox, QSizePolicy)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor, QBrush # Import thêm QColor và QBrush để tô màu
+from PyQt6.QtGui import QFont
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_ui_utils import setup_shared_ai_combobox
 
@@ -37,11 +37,52 @@ class PageConfig(QWidget):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
         container = QWidget()
-        self.form_layout = QVBoxLayout(container)
-        self.form_layout.setSpacing(20)
+        self.main_vbox = QVBoxLayout(container)
+        self.main_vbox.setSpacing(20)
 
-        # --- AI Server Configuration ---
+        # ====================================================
+        # HÀNG 1: THÔNG TIN NGƯỜI DÙNG & CẤU HÌNH MÁY CHỦ AI
+        # ====================================================
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(20)
+
+        # --- PHẦN 1 (Top-Left): THÔNG TIN NGƯỜI DÙNG ---
+        user_group = QGroupBox("👤 Thông tin Người dùng")
+        user_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        user_group_layout = QFormLayout(user_group)
+        
+        font_bold = QFont()
+        font_bold.setBold(True)
+
+        self.lbl_ho_ten = QLabel(); self.lbl_ho_ten.setFont(font_bold)
+        self.lbl_danh_xung = QLabel()
+        self.lbl_phong_ban = QLabel()
+        self.lbl_chuc_vu = QLabel()
+        self.lbl_cong_tac = QLabel()
+        self.lbl_nv_phong = QLabel()
+        self.lbl_chuc_danh_khac = QLabel()
+        self.lbl_syll = QLabel()
+        
+        # [QUAN TRỌNG]: Ép tất cả các Label phải tự động xuống dòng và chấp nhận bị ép nhỏ
+        for label in [self.lbl_ho_ten, self.lbl_danh_xung, self.lbl_phong_ban, self.lbl_chuc_vu,
+                       self.lbl_cong_tac, self.lbl_nv_phong, self.lbl_chuc_danh_khac, self.lbl_syll]:
+            label.setEnabled(False)
+            label.setWordWrap(True) # Cho phép rớt dòng
+            label.setMinimumWidth(100) # Phá bỏ sự kháng cự của Layout
+            label.setStyleSheet("QLabel { color: #333333; background-color: #f3f4f6; padding: 4px; border: 1px solid #e5e7eb; border-radius: 3px; }")
+
+        user_group_layout.addRow("Họ và Tên:", self.lbl_ho_ten)
+        user_group_layout.addRow("Danh xưng:", self.lbl_danh_xung)
+        user_group_layout.addRow("Phòng Ban:", self.lbl_phong_ban)
+        user_group_layout.addRow("Chức vụ:", self.lbl_chuc_vu)
+        user_group_layout.addRow("Công tác:", self.lbl_cong_tac)
+        user_group_layout.addRow("Nhiệm vụ Phòng:", self.lbl_nv_phong)
+        user_group_layout.addRow("Chức danh khác:", self.lbl_chuc_danh_khac)
+        user_group_layout.addRow("Sơ yếu lý lịch:", self.lbl_syll)
+
+        # --- PHẦN 2 (Top-Right): CẤU HÌNH MÁY CHỦ AI ---
         ai_group = QGroupBox("🤖 Cấu hình Máy chủ AI")
+        ai_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         ai_group_layout = QVBoxLayout(ai_group)
 
         preset_layout = QHBoxLayout()
@@ -58,6 +99,10 @@ class PageConfig(QWidget):
         self.txt_api_key = QLineEdit()
         self.txt_api_key.setEchoMode(QLineEdit.EchoMode.Password)
 
+        # [QUAN TRỌNG]: Ép các QLineEdit chấp nhận bị thu hẹp tối đa (ẩn bớt text thay vì cản trở layout)
+        for txt in [self.txt_preset_name, self.txt_url_endpoint, self.txt_model_name, self.txt_api_key]:
+            txt.setMinimumWidth(100)
+
         form_ai_layout.addRow("Tên Preset:", self.txt_preset_name)
         form_ai_layout.addRow("URL Endpoint:", self.txt_url_endpoint)
         form_ai_layout.addRow("Tên Model:", self.txt_model_name)
@@ -65,21 +110,20 @@ class PageConfig(QWidget):
         ai_group_layout.addLayout(form_ai_layout)
 
         ai_buttons_layout = QHBoxLayout()
-        
         self.btn_create_ai_preset = QPushButton("➕ Tạo mới")
         self.btn_create_ai_preset.setObjectName("ToolbarBtn")
         self.btn_create_ai_preset.clicked.connect(self._create_ai_preset)
 
-        self.btn_delete_ai_preset = QPushButton("🗑️ Xóa Preset")
+        self.btn_delete_ai_preset = QPushButton("🗑️ Xóa")
         self.btn_delete_ai_preset.setObjectName("ToolbarBtn")
         self.btn_delete_ai_preset.setStyleSheet("background-color: #ef4444; color: white;")
         self.btn_delete_ai_preset.clicked.connect(self._delete_ai_preset)
 
-        self.btn_set_default_ai = QPushButton("⭐ Đặt làm mặc định")
+        self.btn_set_default_ai = QPushButton("⭐ Đặt mặc định")
         self.btn_set_default_ai.setObjectName("ToolbarBtn")
         self.btn_set_default_ai.clicked.connect(self._set_default_ai_preset)
 
-        self.btn_save_ai_preset = QPushButton("💾 Lưu Preset")
+        self.btn_save_ai_preset = QPushButton("💾 Lưu")
         self.btn_save_ai_preset.setObjectName("BtnBatDau")
         self.btn_save_ai_preset.clicked.connect(self._save_ai_preset)
 
@@ -89,50 +133,52 @@ class PageConfig(QWidget):
         ai_buttons_layout.addWidget(self.btn_set_default_ai)
         ai_buttons_layout.addWidget(self.btn_save_ai_preset)
         ai_group_layout.addLayout(ai_buttons_layout)
-        self.form_layout.addWidget(ai_group)
-
-        # --- User Information ---
-        user_group = QGroupBox("👤 Thông tin Người dùng")
-        user_group_layout = QFormLayout(user_group)
         
-        font_bold = QFont()
-        font_bold.setBold(True)
+        # Đưa 2 Group vào Hàng 1, thiết lập tỷ lệ chia đều 1:1
+        row1_layout.addWidget(user_group, 1)
+        row1_layout.addWidget(ai_group, 1)
 
-        self.lbl_ho_ten = QLabel(); self.lbl_ho_ten.setFont(font_bold)
-        self.lbl_danh_xung = QLabel()
-        self.lbl_phong_ban = QLabel()
-        self.lbl_chuc_vu = QLabel()
-        self.lbl_cong_tac = QLabel()
-        self.lbl_nv_phong = QLabel()
-        self.lbl_chuc_danh_khac = QLabel()
-        self.lbl_syll = QLabel()
-        self.lbl_syll.setWordWrap(True)
 
-        user_group_layout.addRow("Họ và Tên:", self.lbl_ho_ten)
-        user_group_layout.addRow("Danh xưng:", self.lbl_danh_xung)
-        user_group_layout.addRow("Phòng Ban:", self.lbl_phong_ban)
-        user_group_layout.addRow("Chức vụ:", self.lbl_chuc_vu)
-        user_group_layout.addRow("Công tác:", self.lbl_cong_tac)
-        user_group_layout.addRow("Nhiệm vụ Phòng:", self.lbl_nv_phong)
-        user_group_layout.addRow("Chức danh khác:", self.lbl_chuc_danh_khac)
-        user_group_layout.addRow("Sơ yếu lý lịch:", self.lbl_syll)
-        
-        # Làm mờ tất cả thông tin người dùng (Chỉ xem, không cho sửa)
-        for label in [self.lbl_ho_ten, self.lbl_danh_xung, self.lbl_phong_ban, self.lbl_chuc_vu,
-                       self.lbl_cong_tac, self.lbl_nv_phong, self.lbl_chuc_danh_khac, self.lbl_syll]:
-            label.setEnabled(False)
-            label.setStyleSheet("QLabel { color: #333333; background-color: #f3f4f6; padding: 4px; border: 1px solid #e5e7eb; border-radius: 3px; }")
+        # ====================================================
+        # HÀNG 2: BỘ LỆNH CỦA AI & QUY TẮC VĂN BẢN
+        # ====================================================
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(20)
 
-        self.form_layout.addWidget(user_group)
-        
+        # --- PHẦN 3 (Bottom-Left): BỘ LỆNH CỦA AI ---
+        prompt_group = QGroupBox("🧠 Bộ lệnh của AI")
+        prompt_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        prompt_layout = QVBoxLayout(prompt_group)
+        prompt_layout.addWidget(QLabel("Đang chờ cập nhật..."))
+        prompt_layout.addStretch()
+
+        # --- PHẦN 4 (Bottom-Right): QUY TẮC VĂN BẢN ---
+        rules_group = QGroupBox("📜 Quy tắc văn bản")
+        rules_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        rules_layout = QVBoxLayout(rules_group)
+        rules_layout.addWidget(QLabel("Đang chờ cập nhật..."))
+        rules_layout.addStretch()
+
+        # Đưa 2 Group vào Hàng 2, thiết lập tỷ lệ chia đều 1:1
+        row2_layout.addWidget(prompt_group, 1)
+        row2_layout.addWidget(rules_group, 1)
+
+        # Thêm 2 Hàng vào Layout chính, thiết lập tỷ lệ chiều dọc chia đều 1:1
+        self.main_vbox.addLayout(row1_layout, 1)
+        self.main_vbox.addLayout(row2_layout, 1)
+
         scroll.setWidget(container)
         layout.addWidget(scroll)
 
     def _load_ai_presets_to_combo(self):
-     setup_shared_ai_combobox(self.combo_ai_presets, store_full_dict=True)
-     # Nạp dữ liệu lên textbox cho mục đang chọn
-     if self.combo_ai_presets.count() > 0:
-         self._on_ai_preset_selected(self.combo_ai_presets.currentIndex())
+        setup_shared_ai_combobox(self.combo_ai_presets, store_full_dict=True)
+        if self.combo_ai_presets.count() > 0:
+            self._on_ai_preset_selected(self.combo_ai_presets.currentIndex())
+        else:
+            self._clear_ai_fields()
+            self.current_preset_id = None
+            self.current_preset_is_global = False
+            self._update_ai_buttons_state()
 
     def _on_ai_preset_selected(self, index):
         if index == -1:
@@ -147,7 +193,6 @@ class PageConfig(QWidget):
             self.txt_model_name.setText(preset_data.get("Model_Name", ""))
             self.txt_api_key.setText(preset_data.get("API_Key", ""))
             
-            # Đối với cấu hình hệ thống (mặc định) -> Làm mờ các ô text, không cho sửa
             if self.current_preset_is_global:
                 self.txt_preset_name.setEnabled(False)
                 self.txt_url_endpoint.setEnabled(False)
@@ -172,15 +217,15 @@ class PageConfig(QWidget):
         self.txt_api_key.clear()
 
     def _update_ai_buttons_state(self):
-        if self.current_preset_id is None: # Chế độ Tạo mới
+        if self.current_preset_id is None: 
             self.btn_save_ai_preset.setEnabled(True)
             self.btn_set_default_ai.setEnabled(False)
             self.btn_delete_ai_preset.setEnabled(False)
-        elif self.current_preset_is_global: # Chế độ Cấu hình hệ thống dùng chung
+        elif self.current_preset_is_global: 
             self.btn_save_ai_preset.setEnabled(False)
             self.btn_set_default_ai.setEnabled(False)
             self.btn_delete_ai_preset.setEnabled(False)
-        else: # Chế độ cấu hình cá nhân
+        else: 
             self.btn_save_ai_preset.setEnabled(True)
             self.btn_set_default_ai.setEnabled(True)
             self.btn_delete_ai_preset.setEnabled(True)
@@ -190,13 +235,11 @@ class PageConfig(QWidget):
         self.current_preset_is_global = False
         self._clear_ai_fields()
         
-        # Mở khóa các ô nhập liệu cho chế độ nhập mới
         self.txt_preset_name.setEnabled(True)
         self.txt_url_endpoint.setEnabled(True)
         self.txt_model_name.setEnabled(True)
         self.txt_api_key.setEnabled(True)
         
-        # Đồng bộ trạng thái không chọn trên Combobox
         self.combo_ai_presets.blockSignals(True)
         self.combo_ai_presets.setCurrentIndex(-1)
         self.combo_ai_presets.blockSignals(False)
@@ -219,7 +262,6 @@ class PageConfig(QWidget):
             cursor = conn.cursor()
             
             if self.current_preset_id is None:
-                # [FIX LỖI DATABASE]: Truy vấn tìm ID lớn nhất và tự cộng thêm 1 để chèn mới
                 cursor.execute("SELECT MAX(ID) FROM ket_noi_ai")
                 max_id_result = cursor.fetchone()
                 new_id = (max_id_result[0] + 1) if max_id_result and max_id_result[0] is not None else 1
@@ -236,7 +278,6 @@ class PageConfig(QWidget):
                     QMessageBox.warning(self, "Lỗi", "Không thể chỉnh sửa cấu hình hệ thống dùng chung.")
                     cursor.close(); conn.close()
                     return
-                # Chức năng: Cập nhật Preset cá nhân hiện tại
                 query = """
                     UPDATE ket_noi_ai 
                     SET Preset_Name = %s, URL = %s, Model_Name = %s, API_Key = %s 
@@ -261,14 +302,9 @@ class PageConfig(QWidget):
         try:
             conn = db.get_connection()
             cursor = conn.cursor()
-            
-            # Bước 1: Gỡ trạng thái mặc định cũ của các cấu hình cá nhân thuộc tài khoản hiện tại
             cursor.execute("UPDATE ket_noi_ai SET `Default` = 'FALSE' WHERE person_key = %s", (db.person_key,))
-            
-            # Bước 2: Kích hoạt trạng thái mặc định cho cấu hình được chọn
             cursor.execute("UPDATE ket_noi_ai SET `Default` = 'TRUE' WHERE ID = %s AND person_key = %s", 
                            (self.current_preset_id, db.person_key))
-            
             conn.commit()
             cursor.close()
             conn.close()
