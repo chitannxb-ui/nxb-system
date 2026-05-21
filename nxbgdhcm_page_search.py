@@ -210,19 +210,13 @@ class AISearchWorker(QThread):
 
         self.progress_msg_signal.emit(f"⚙️ [HỆ THỐNG]: Vòng 1 tìm thấy {len(raw_results)} tài liệu. Đang đưa A.I chắt lọc (Vòng 2)...")
 
+        # [FIX] Khôi phục lại biến giới hạn ký tự Token chống tràn
         MAX_CHARS = 28000
-        base_prompt = f"""Người dùng yêu cầu tìm: [{self.user_query}]. Dưới đây là danh sách các file tìm được kèm nội dung trích dẫn. Hãy kiểm tra lại và CHỈ GIỮ LẠI những file thực sự liên quan đến yêu cầu. Trả về đúng một khối JSON DUY NHẤT chứa một mảng (Array), không giải thích thêm.
-Cấu trúc JSON yêu cầu:
-[
-  {{
-    "md5": "mã md5 của file",
-    "y_kien": "Lý do ngắn gọn tại sao file này liên quan"
-  }}
-]
-
-DANH SÁCH FILE:
-"""
-        payload_text = base_prompt
+        base_prompt = db.get_prompt('prompt_search_filter')
+        if not base_prompt:
+            base_prompt = "Người dùng yêu cầu tìm: [{user_query}]. Dưới đây là danh sách các file tìm được kèm nội dung trích dẫn. Hãy kiểm tra lại và CHỈ GIỮ LẠI những file thực sự liên quan đến yêu cầu. Trả về đúng một khối JSON DUY NHẤT chứa một mảng (Array), không giải thích thêm.\nCấu trúc JSON yêu cầu:\n[\n  {\n    \"md5\": \"mã md5 của file\",\n    \"y_kien\": \"Lý do ngắn gọn tại sao file này liên quan\"\n  }\n]\n\nDANH SÁCH FILE:\n"
+            
+        payload_text = base_prompt.replace('{user_query}', self.user_query)
         included_md5s = set()
         top_results = raw_results[:50] 
         valid_raw_results = []
@@ -276,7 +270,7 @@ Trích dẫn: {snippet}"""
         except Exception as e:
             self.finished_signal.emit(False, [], [], f"Lỗi phân tích cú pháp AI vòng 2: Không tìm thấy tài liệu phù hợp.")
             
-        self.logic.set_running_state(self.task_key, False)
+        self.logic.set_running_state(self.task_key, False)    
 
 class AIChatThread(QThread):
     chat_start_signal = pyqtSignal(str, str)
@@ -294,10 +288,11 @@ class AIChatThread(QThread):
     def run(self):
         self.logic.set_running_state(self.task_key, True)
         
-        sys_prompt = f"""Bạn là trợ lý của {db.danh_xung} {db.ho_ten}. Phản hồi JSON:
-1. Tìm kiếm: {{"Yêu cầu": "Tìm kiếm", "Nội dung": "từ gốc, từ đồng nghĩa 1, từ đồng nghĩa 2, cụm từ liên quan 1, ... (Tạo ra 8 đến 12 từ/cụm từ liên quan, biến thể văn phong hành chính, mỗi cụm từ không vượt quá 5 chữ)"}}
-2. Tạo văn bản: {{"Yêu cầu": "Tạo văn bản", "Nội dung": "Mã HTML", "tên file": "tên"}}
-3. Tán gẫu: Trả lời tự nhiên."""
+        sys_prompt = db.get_prompt('prompt_system_chat')
+        if not sys_prompt:
+            sys_prompt = "Bạn là trợ lý của {danh_xung} {ho_ten}. Phản hồi JSON:\n1. Tìm kiếm: {\"Yêu cầu\": \"Tìm kiếm\", \"Nội dung\": \"từ gốc, từ đồng nghĩa 1, từ đồng nghĩa 2, cụm từ liên quan 1, ... (Tạo ra 8 đến 12 từ/cụm từ liên quan, biến thể văn phong hành chính, mỗi cụm từ không vượt quá 5 chữ)\"}\n2. Tạo văn bản: {\"Yêu cầu\": \"Tạo văn bản\", \"Nội dung\": \"Mã HTML\", \"tên file\": \"tên\"}\n3. Tán gẫu: Trả lời tự nhiên."
+            
+        sys_prompt = sys_prompt.replace('{danh_xung}', db.danh_xung).replace('{ho_ten}', db.ho_ten)
         
         if not self.chat_messages: self.chat_messages.append({"role": "system", "content": sys_prompt})
         else: self.chat_messages[0]["content"] = sys_prompt

@@ -185,19 +185,22 @@ def load_document_types(db_conn):
         log(f"[CANH BAO] Lỗi tải danh mục loại văn bản từ DB: {e}", "warning")
     return ""
 
-def get_prompt_summary(doc_types_str=""):
+def get_prompt_summary(db_conn, doc_types_str=""):
+    try:
+        db_conn.ping(reconnect=True, attempts=3, delay=1)
+        c = db_conn.cursor()
+        c.execute("SELECT Prompt_Content FROM cau_hinh_prompt WHERE Prompt_Key = 'prompt_cmd_summary'")
+        row = c.fetchone()
+        c.close()
+        prompt = row[0] if row else ""
+    except:
+        prompt = ""
+        
+    if not prompt:
+        prompt = 'Bạn là một hệ thống AI chuyên gia về phân tích tài liệu của Nhà xuất bản. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT. TUYỆT ĐỐI KHÔNG giải thích.\nNhiệm vụ của bạn là đọc nội dung văn bản dưới đây và trả về 2 trường theo cấu trúc Json:\n1. "Loại văn bản": Phân loại văn bản dựa vào danh sách sau: {types_instruction}. Nếu không chắc chắn, hãy ghi là "Văn bản".\n2. "Summary": Tóm tắt toàn bộ nội dung chứa các từ khóa quan trọng, KHÔNG dài dòng, KHÔNG có câu chào/giới thiệu, NGẮN GỌN TRONG TỐI ĐA 100 TỪ.\n\nLƯU Ý QUAN TRỌNG: \n1. Kết quả bắt buộc bắt đầu bằng { và kết thúc bằng }.\n2. Trả về đúng 2 key: "Loại văn bản" và "Summary".\n\n[NỘI DUNG VĂN BẢN]:\n'
+        
     types_instruction = f'[{doc_types_str}]' if doc_types_str else 'danh sách nội bộ'
-    return f"""Bạn là một hệ thống AI chuyên gia về phân tích tài liệu của Nhà xuất bản. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT. TUYỆT ĐỐI KHÔNG giải thích.
-Nhiệm vụ của bạn là đọc nội dung văn bản dưới đây và trả về 2 trường theo cấu trúc Json:
-1. "Loại văn bản": Phân loại văn bản dựa vào danh sách sau: {types_instruction}. Nếu không chắc chắn, hãy ghi là "Văn bản".
-2. "Summary": Tóm tắt toàn bộ nội dung chứa các từ khóa quan trọng, KHÔNG dài dòng, KHÔNG có câu chào/giới thiệu, NGẮN GỌN TRONG TỐI ĐA 100 TỪ.
-
-LƯU Ý QUAN TRỌNG: 
-1. Kết quả bắt buộc bắt đầu bằng {{ và kết thúc bằng }}. 
-2. Trả về đúng 2 key: "Loại văn bản" và "Summary".
-
-[NỘI DUNG VĂN BẢN]:
-"""
+    return prompt.replace('{types_instruction}', types_instruction)
 
 def extract_json(text):
     try: return json.loads(text, strict=False)
@@ -318,7 +321,7 @@ def process_summaries():
     try:
         # Load danh sách loại văn bản làm kim chỉ nam
         doc_types_str = load_document_types(db_conn)
-        base_prompt = get_prompt_summary(doc_types_str)
+        base_prompt = get_prompt_summary(db_conn, doc_types_str)
 
         log("[TRUY VAN] Đang tìm kiếm các văn bản chưa được Tóm tắt...", "info")
         c = db_conn.cursor(dictionary=True)

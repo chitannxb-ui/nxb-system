@@ -93,6 +93,7 @@ class DBManager:
             
             tables_sql = [
                 '''CREATE TABLE IF NOT EXISTS nguoi_dung (Person_key VARCHAR(255) PRIMARY KEY, Mac_Address VARCHAR(100), Computer_Name VARCHAR(255), User_Name VARCHAR(255), danh_xung VARCHAR(11) DEFAULT NULL, Ho_Va_Ten VARCHAR(255) DEFAULT '', Chuc_vu VARCHAR(255) DEFAULT '', Phong_Ban VARCHAR(255) DEFAULT '') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
+                '''CREATE TABLE IF NOT EXISTS cau_hinh_prompt (Prompt_Key VARCHAR(50) PRIMARY KEY, Prompt_Content TEXT NOT NULL, prompt_type VARCHAR(50) NOT NULL DEFAULT 'in_app', Description VARCHAR(255) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS ket_noi_ai (ID INT(11) AUTO_INCREMENT PRIMARY KEY, Preset_Name VARCHAR(255), URL VARCHAR(500), Model_Name VARCHAR(100), API_Key VARCHAR(255), `Default` VARCHAR(10)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS loai_van_ban (ID INT(11) AUTO_INCREMENT PRIMARY KEY, Loai_VB VARCHAR(255) NOT NULL, Mo_ta VARCHAR(500) DEFAULT NULL, Tu_khoa VARCHAR(255) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS documents (md5 VARCHAR(255) NOT NULL, person_key VARCHAR(255) NOT NULL, file_name TEXT, file_path TEXT, file_type VARCHAR(50), doc_type VARCHAR(255), doc_number VARCHAR(255), doc_day VARCHAR(10), doc_month VARCHAR(10), doc_year VARCHAR(10), doc_org TEXT, doc_signer TEXT, full_text LONGTEXT, summary VARCHAR(255), last_scan BIGINT(20), Fixed TINYINT(4), PRIMARY KEY (md5, person_key)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
@@ -407,6 +408,20 @@ class DBManager:
             conn.commit()
             return True
         except: return False
+        finally:
+            if conn and conn.open: conn.close()
+
+def get_prompt(self, prompt_key):
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT Prompt_Content FROM cau_hinh_prompt WHERE Prompt_Key = %s", (prompt_key,))
+            row = cursor.fetchone()
+            cursor.close()
+            return row[0] if row else ""
+        except:
+            return ""
         finally:
             if conn and conn.open: conn.close()
 

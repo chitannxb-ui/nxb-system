@@ -232,6 +232,13 @@ def init_global_db():
         c.execute('''CREATE TABLE IF NOT EXISTS loai_van_ban (
                         ID INT AUTO_INCREMENT PRIMARY KEY, Loai_VB VARCHAR(255) NOT NULL UNIQUE
                      )''')
+
+        # Khởi tạo tự động bảng quản lý prompt tập trung
+        c.execute('''CREATE TABLE IF NOT EXISTS cau_hinh_prompt (
+                        Prompt_Key VARCHAR(50) PRIMARY KEY, Prompt_Content TEXT NOT NULL,
+                        prompt_type VARCHAR(50) NOT NULL DEFAULT 'in_app', Description VARCHAR(255) DEFAULT NULL
+                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''')
+
         conn.commit()
         c.close()
         conn.close()
@@ -299,7 +306,7 @@ def save_document_to_db(db_conn, md5_hash, filename, filepath, file_type, metada
         log(f"[LOI GHI CSDL]: {e}", "error")
 
 # ==========================================
-# CẤU HÌNH AI VÀ PROMPT
+# CẤU HÌNH AI VÀ PROMPT DYNAMIC FETCH
 # ==========================================
 def load_connections():
     global API_URL, MODEL, API_KEY, HEADERS
@@ -343,25 +350,30 @@ def load_document_types(db_conn=None):
             log(f"[CANH BAO] Lỗi tải danh mục loại văn bản từ DB: {e}", "warning")
     return ""
 
-def get_prompt_page_1(doc_types_str=""):
-    types_instruction = f'Dựa vào danh sách sau: [{doc_types_str}]. ' if doc_types_str else ''
-    return f"""Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT. TUYỆT ĐỐI KHÔNG giải thích.
-- Hãy trích xuất các nội dung sau theo cấu trúc Json: "Loại văn bản" ({types_instruction}nếu không rõ ghi "Văn bản"); "Số văn bản"; "Ngày" (2 số); "Tháng" (2 số); "Năm" (4 số); "Đơn vị soạn văn bản"; "Người ký" (Nếu nhiều người thì cách nhau bằng dấu phẩy); "Toàn văn" (nếu là ảnh scan của văn bản, trả về nội dung toàn văn, nếu là ảnh chụp/bản vẽ, trả về nội dung phân tích chi tiết bức ảnh).
-LƯU Ý QUAN TRỌNG: 
-1. Kết quả bắt buộc phải bắt đầu bằng {{ và kết thúc bằng }}. 
-2. Luôn đặt trường "Toàn văn" ở cuối cùng.
-3. Nếu không tìm thấy thông tin nào, để chuỗi rỗng ""."""
+def get_prompt_from_db(db_conn, prompt_key):
+    try:
+        db_conn.ping(reconnect=True, attempts=3, delay=1)
+        c = db_conn.cursor()
+        c.execute("SELECT Prompt_Content FROM cau_hinh_prompt WHERE Prompt_Key = %s", (prompt_key,))
+        row = c.fetchone()
+        c.close()
+        return row[0] if row else ""
+    except:
+        return ""
 
-def get_prompt_word_metadata(doc_types_str=""):
+def get_prompt_page_1(db_conn, doc_types_str=""):
+    prompt = get_prompt_from_db(db_conn, 'prompt_ocr_page_1')
+    if not prompt:
+        prompt = 'Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT. TUYỆT ĐỐI KHÔNG giải thích.\n- Hãy trích xuất các nội dung sau theo cấu trúc Json: "Loại văn bản" ({types_instruction}nếu không rõ ghi "Văn bản"); "Số văn bản"; "Ngày" (2 số); "Tháng" (2 số); "Năm" (4 số); "Đơn vị soạn văn bản"; "Người ký" (Nếu nhiều người thì cách nhau bằng dấu phẩy); "Toàn văn" (nếu là ảnh scan của văn bản, trả về nội dung toàn văn, nếu là ảnh chụp/bản vẽ, trả về nội dung phân tích chi tiết bức ảnh).\nLƯU Ý QUAN TRỌNG: 1. Kết quả bắt buộc phải bắt đầu bằng { và kết thúc bằng }. 2. Luôn đặt trường "Toàn văn" ở cuối cùng. 3. Nếu không tìm thấy thông tin nào, để chuỗi rỗng "".'
     types_instruction = f'Dựa vào danh sách sau: [{doc_types_str}]. ' if doc_types_str else ''
-    return f"""Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT.
-Hãy trích xuất các thông tin sau theo cấu trúc Json: "Loại văn bản" ({types_instruction}nếu không rõ ghi "Văn bản"); "Số văn bản"; "Ngày" (2 số); "Tháng" (2 số); "Năm" (4 số); "Đơn vị soạn văn bản"; "Người ký".
-LƯU Ý QUAN TRỌNG: 
-1. Bắt buộc bắt đầu bằng {{ và kết thúc bằng }}. 
-2. KHÔNG trích xuất "Toàn văn".
+    return prompt.replace('{types_instruction}', types_instruction)
 
-[NỘI DUNG VĂN BẢN]:
-"""
+def get_prompt_word_metadata(db_conn, doc_types_str=""):
+    prompt = get_prompt_from_db(db_conn, 'prompt_text_metadata')
+    if not prompt:
+        prompt = 'Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT.\nHãy trích xuất các thông tin sau theo cấu trúc Json: "Loại văn bản" ({types_instruction}nếu không rõ ghi "Văn bản"); "Số văn bản"; "Ngày" (2 số); "Tháng" (2 số); "Năm" (4 số); "Đơn vị soạn văn bản"; "Người ký".\nLƯU Ý QUAN TRỌNG: 1. Bắt buộc bắt đầu bằng { và kết thúc bằng }. 2. KHÔNG trích xuất "Toàn văn".\n\n[NỘI DUNG VĂN BẢN]:\n'
+    types_instruction = f'Dựa vào danh sách sau: [{doc_types_str}]. ' if doc_types_str else ''
+    return prompt.replace('{types_instruction}', types_instruction)
 
 PROMPT_PAGE_N = """Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT.
 Trích xuất nội dung của trang này theo cấu trúc Json chỉ với 2 trường: "Người ký"; "Toàn văn" (nếu là ảnh scan của văn bản, trả về nội dung toàn văn, nếu là ảnh chụp/bản vẽ, trả về nội dung phân tích chi tiết bức ảnh).
@@ -540,7 +552,6 @@ def process_batch(folder_path):
         log("[THANH CONG] Quét MD5 hoàn tất. Bắt đầu đối chiếu và trích xuất!", "success")
         
         doc_types_str = load_document_types(db_conn)
-        prompt_page_1 = get_prompt_page_1(doc_types_str)
         
         success_count = 0
         skip_count = 0
@@ -548,6 +559,11 @@ def process_batch(folder_path):
 
         def run_files(files_list, is_retry=False):
             nonlocal success_count, skip_count
+            
+            # Đọc động prompt cho trang n tự động từ CSDL
+            db_prompt_page_n = get_prompt_from_db(db_conn, 'prompt_cmd_ocr_page_n')
+            current_prompt_page_n = db_prompt_page_n if db_prompt_page_n else PROMPT_PAGE_N
+            
             for data in files_list:
                 if not is_running: break
                 filepath, filename, file_md5 = data["path"], data["name"], data["md5"]
@@ -707,7 +723,8 @@ def process_batch(folder_path):
                         if not is_running: break
                         for attempt in range(3):
                             if not is_running: break
-                            raw = call_ai_stream(get_prompt_word_metadata(doc_types_str) + chunk, None, idx+1, len(chunks), filename, file_prog_str, force_text_mode=True)
+                            word_prompt = get_prompt_word_metadata(db_conn, doc_types_str) + chunk
+                            raw = call_ai_stream(word_prompt, None, idx+1, len(chunks), filename, file_prog_str, force_text_mode=True)
                             ai_data = extract_json(raw, True)
                             if ai_data:
                                 for k in ["Loại văn bản", "Số văn bản", "Ngày", "Tháng", "Năm", "Đơn vị soạn văn bản"]:
@@ -762,7 +779,7 @@ def process_batch(folder_path):
                     ai_data = None
                     for attempt in range(3):
                         if not is_running: break
-                        prompt = prompt_page_1 if p_num == 1 else PROMPT_PAGE_N
+                        prompt = get_prompt_page_1(db_conn, doc_types_str) if p_num == 1 else current_prompt_page_n
                         raw = call_ai_stream(prompt, b64_img, p_num, total_p, filename, file_prog_str)
                         ai_data = extract_json(raw, (p_num == 1))
                         if ai_data: break

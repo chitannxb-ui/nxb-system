@@ -233,65 +233,44 @@ class OCRLogic:
         return self.clean_word_text(text_content)
 
     def get_prompt_page_evaluation_v2(self, prev_text=""):
-        return f"""Bạn là hệ thống phân tích hình ảnh văn bản.
-Hình ảnh mà bạn nhận được là 1 trang trong một tập các văn bản.
-[Nội dung Trang trước]:
-{prev_text if prev_text else "Không có dữ liệu"}
-
-TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT:
-{{
-    "Phân tích": "1 trang" | "Trang đầu" | "Trang tiếp" | "Trang cuối" | "Trang trắng",
-    "Toàn văn": "Nội dung toàn văn của trang văn bản."
-}}"""
+        from nxbgdhcm_db_manager import db
+        prompt = db.get_prompt('prompt_page_split')
+        if not prompt:
+            # Fallback dự phòng nếu lỗi kết nối DB
+            prompt = "Bạn là hệ thống phân tích hình ảnh văn bản.\nHình ảnh mà bạn nhận được là 1 trang trong một tập các văn bản.\n[Nội dung Trang trước]:\n{prev_text}\n\nTRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT:\n{{\n    \"Phân tích\": \"1 trang\" | \"Trang đầu\" | \"Trang tiếp\" | \"Trang cuối\" | \"Trang trắng\",\n    \"Toàn văn\": \"Nội dung toàn văn của trang văn bản.\"\n}}"
+        return prompt.replace('{prev_text}', prev_text if prev_text else "Không có dữ liệu")
 
     def get_prompt_page_1(self, doc_types_str=""):
+        from nxbgdhcm_db_manager import db
+        prompt = db.get_prompt('prompt_ocr_page_1')
+        if not prompt:
+            prompt = 'Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT. TUYỆT ĐỐI KHÔNG giải thích.\n- Hãy trích xuất các nội dung sau theo cấu trúc Json: "Loại văn bản" ({types_instruction}nếu không rõ ghi "Văn bản"); "Số văn bản"; "Ngày" (2 số); "Tháng" (2 số); "Năm" (4 số); "Đơn vị soạn văn bản"; "Người ký" (Nếu nhiều người thì cách nhau bằng dấu phẩy); "Toàn văn" (nếu là ảnh scan của văn bản, trả về nội dung toàn văn, nếu là ảnh chụp/bản vẽ, trả về nội dung phân tích chi tiết bức ảnh). Bird eye view.\nLƯU Ý QUAN TRỌNG: 1. Bắt buộc bắt đầu bằng {{ và kết thúc bằng }}. 2. Luôn đặt trường "Toàn văn" ở cuối cùng.'
         types_instruction = f'Dựa vào danh sách sau: [{doc_types_str}]. ' if doc_types_str else ''
-        return f"""Bạn là một hệ thống trích xuất dữ liệu API tự động. BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT. TUYỆT ĐỐI KHÔNG giải thích.
-- Hãy trích xuất các nội dung sau theo cấu trúc Json: "Loại văn bản" ({types_instruction}nếu không rõ ghi "Văn bản"); "Số văn bản"; "Ngày" (2 số); "Tháng" (2 số); "Năm" (4 số); "Đơn vị soạn văn bản"; "Người ký" (Nếu nhiều người thì cách nhau bằng dấu phẩy); "Toàn văn" (nếu là ảnh scan của văn bản, trả về nội dung toàn văn, nếu là ảnh chụp/bản vẽ, trả về nội dung phân tích chi tiết bức ảnh).
-LƯU Ý QUAN TRỌNG: 1. Bắt buộc bắt đầu bằng {{ và kết thúc bằng }}. 2. Luôn đặt trường "Toàn văn" ở cuối cùng."""
+        return prompt.replace('{types_instruction}', types_instruction)
 
     def get_prompt_page_n(self):
-        return """Bạn là một hệ thống trích xuất dữ liệu API. TRẢ VỀ ĐÚNG MỘT KHỐI JSON.
-Trích xuất: "Người ký"; "Toàn văn". 1. Luôn đặt "Toàn văn" ở cuối cùng trong JSON."""
+        from nxbgdhcm_db_manager import db
+        prompt = db.get_prompt('prompt_ocr_page_n')
+        if not prompt:
+            prompt = 'Bạn là một hệ thống trích xuất dữ liệu API. TRẢ VỀ ĐÚNG MỘT KHỐI JSON.\nTrích xuất: "Người ký"; "Toàn văn". 1. Luôn đặt "Toàn văn" ở cuối cùng trong JSON.'
+        return prompt
 
     def get_prompt_text_metadata(self, doc_types_str="", text_content=""):
+        from nxbgdhcm_db_manager import db
+        prompt = db.get_prompt('prompt_text_metadata')
+        if not prompt:
+            prompt = 'Dưới đây là phần đầu của một văn bản (đã được bóc tách thành Text).\nNhiệm vụ của bạn là đọc Text này và trích xuất ra các thông tin Siêu dữ liệu (Metadata).\nBẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT, KHÔNG GIẢI THÍCH THÊM.\n\n[Nội dung Văn bản]:\n{text_content}\n\n[Cấu trúc JSON yêu cầu]:\n{{\n    \"Loại văn bản\": \"({types_instruction}Ví dụ: Quyết định, Báo cáo, Hợp đồng, Mã nguồn, Bảng tính...)\",\n    \"Số văn bản\": \"(Số hiệu nếu có)\",\n    \"Ngày\": \"(2 số)\",\n    \"Tháng\": \"(2 số)\",\n    \"Năm\": \"(4 số)\",\n    \"Đơn vị soạn văn bản\": \"\",\n    \"Người ký\": \"\"\n}}'
         types_instruction = f'Gợi ý loại văn bản: [{doc_types_str}]. ' if doc_types_str else ''
-        return f"""Dưới đây là phần đầu của một văn bản (đã được bóc tách thành Text).
-Nhiệm vụ của bạn là đọc Text này và trích xuất ra các thông tin Siêu dữ liệu (Metadata).
-BẠN PHẢI TRẢ VỀ ĐÚNG MỘT KHỐI JSON DUY NHẤT, KHÔNG GIẢI THÍCH THÊM.
-
-[Nội dung Văn bản]:
-{text_content}
-
-[Cấu trúc JSON yêu cầu]:
-{{
-    "Loại văn bản": "({types_instruction}Ví dụ: Quyết định, Báo cáo, Hợp đồng, Mã nguồn, Bảng tính...)",
-    "Số văn bản": "(Số hiệu nếu có)",
-    "Ngày": "(2 số)",
-    "Tháng": "(2 số)",
-    "Năm": "(4 số)",
-    "Đơn vị soạn văn bản": "",
-    "Người ký": ""
-}}"""
+        return prompt.replace('{types_instruction}', types_instruction).replace('{text_content}', text_content)
 
     def get_prompt_rename(self, template, meta_json, summary, ext, rejected_names):
+        from nxbgdhcm_db_manager import db
+        prompt = db.get_prompt('prompt_file_rename')
+        if not prompt:
+            prompt = 'Bạn là một trợ lý đặt tên file thông minh. Dựa vào thông tin sau đây của một văn bản, hãy đặt một tên file mới {template_str}.\n\n[THÔNG TIN VĂN BẢN]:\nMetadata: {meta_json}\nTóm tắt nội dung: {summary}\n\nYÊU CẦU BẮT BUỘC:\n- Tên file bắt buộc phải kết thúc bằng đuôi \'{ext}\'.\n- Trả về ĐÚNG MỘT KHỐI JSON DUY NHẤT chứa tên file mới.{reject_str}\n\nCẤU TRÚC JSON TRẢ VỀ:\n{{\n    \"Tên mới\": \"ten_file_ban_nghi_ra{ext}\" \n}}'
         reject_str = f"\n- TUYỆT ĐỐI TRÁNH CÁC TÊN SAU: {', '.join(rejected_names)}" if rejected_names else ""
         template_str = f"theo cấu trúc: '{template}'" if template.strip() else "ngắn gọn, xúc tích, phản ánh đúng nội dung."
-        
-        return f"""Bạn là một trợ lý đặt tên file thông minh. Dựa vào thông tin sau đây của một văn bản, hãy đặt một tên file mới {template_str}.
-
-[THÔNG TIN VĂN BẢN]:
-Metadata: {json.dumps(meta_json, ensure_ascii=False)}
-Tóm tắt nội dung: {summary}
-
-YÊU CẦU BẮT BUỘC:
-- Tên file bắt buộc phải kết thúc bằng đuôi '{ext}'.
-- Trả về ĐÚNG MỘT KHỐI JSON DUY NHẤT chứa tên file mới.{reject_str}
-
-CẤU TRÚC JSON TRẢ VỀ:
-{{
-    "Tên mới": "ten_file_ban_nghi_ra{ext}" 
-}}"""
+        return prompt.replace('{template_str}', template_str).replace('{meta_json}', json.dumps(meta_json, ensure_ascii=False)).replace('{summary}', summary).replace('{ext}', ext).replace('{reject_str}', reject_str)
 
     def test_ai_connection(self, url, model, api_key):
         if not url.startswith("http"): url = "http://" + url
