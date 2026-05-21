@@ -8,8 +8,10 @@ from nxbgdhcm_page_ocr import PageOCR
 from nxbgdhcm_page_search import PageSearch
 from nxbgdhcm_page_split import PageSplit
 from nxbgdhcm_page_rename import PageRename 
-from nxbgdhcm_page_config import PageConfig # Bước 1: Import trang cấu hình hệ thống vào giao diện chính
 from nxbgdhcm_page_config import PageConfig
+from nxbgdhcm_page_job_assistant import PageJobAssistant
+
+
 from nxbgdhcm_ui_utils import THEME
 
 class MainWindow(QMainWindow):
@@ -47,23 +49,25 @@ class MainWindow(QMainWindow):
         self.sidebar_layout.addWidget(title_container)
         self.sidebar_layout.addSpacing(30)
 
+        self.btn_assistant = QPushButton("💼 Trợ lý công việc")
         self.btn_ocr = QPushButton("📁 Số hóa tài liệu")
         self.btn_search = QPushButton("🔍 Tìm kiếm tài liệu")
         self.btn_split = QPushButton("✂️ Tách tài liệu PDF")
         self.btn_rename = QPushButton("📝 Đổi tên file AI") 
-        self.btn_config = QPushButton("⚙️ Cấu hình hệ thống") # Bước 2: Khởi tạo nút Menu cho trang cấu hình
+        self.btn_config = QPushButton("⚙️ Cấu hình hệ thống")
         
         # Thêm nút btn_config vào vòng lặp định dạng style của Sidebar
-        for btn in [self.btn_ocr, self.btn_search, self.btn_split, self.btn_rename, self.btn_config]:
+        for btn in [self.btn_assistant, self.btn_ocr, self.btn_search, self.btn_split, self.btn_rename, self.btn_config]:
             btn.setObjectName("MenuButton")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.sidebar_layout.addWidget(btn)
 
-        self.btn_ocr.clicked.connect(lambda: self.switch_page(0))
-        self.btn_search.clicked.connect(lambda: self.switch_page(1))
-        self.btn_split.clicked.connect(lambda: self.switch_page(2))
-        self.btn_rename.clicked.connect(lambda: self.switch_page(3))
-        self.btn_config.clicked.connect(lambda: self.switch_page(4)) # Bước 3: Kết nối sự kiện click của nút chuyển sang index trang số 4
+        self.btn_assistant.clicked.connect(lambda: self.switch_page(0))
+        self.btn_ocr.clicked.connect(lambda: self.switch_page(1))
+        self.btn_search.clicked.connect(lambda: self.switch_page(2))
+        self.btn_split.clicked.connect(lambda: self.switch_page(3))
+        self.btn_rename.clicked.connect(lambda: self.switch_page(4))
+        self.btn_config.clicked.connect(lambda: self.switch_page(5))
 
         self.sidebar_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         
@@ -82,17 +86,19 @@ class MainWindow(QMainWindow):
 
         self.stacked_widget = QStackedWidget()
         
+        self.page_assistant = PageJobAssistant(self, self.shared_logic)
         self.page_ocr = PageOCR(self, self.shared_logic)
         self.page_search = PageSearch(self, self.shared_logic)
         self.page_split = PageSplit(self, self.shared_logic)
         self.page_rename = PageRename(self, self.shared_logic) 
-        self.page_config = PageConfig(self, self.shared_logic) # Bước 4: Khởi tạo thực thể giao diện cấu hình
+        self.page_config = PageConfig(self, self.shared_logic)
         
+        self.stacked_widget.addWidget(self.page_assistant)
         self.stacked_widget.addWidget(self.page_ocr)
         self.stacked_widget.addWidget(self.page_search)
         self.stacked_widget.addWidget(self.page_split)
         self.stacked_widget.addWidget(self.page_rename)
-        self.stacked_widget.addWidget(self.page_config) # Bước 5: Đưa thực thể trang cấu hình vào QStackedWidget (vị trí index số 4)
+        self.stacked_widget.addWidget(self.page_config)
         self.main_layout.addWidget(self.stacked_widget, 1)
 
         self.setStyleSheet(f"""
@@ -135,14 +141,16 @@ class MainWindow(QMainWindow):
 
     def switch_page(self, index):
         self.stacked_widget.setCurrentIndex(index)
-        self.btn_ocr.setObjectName("MenuButtonActive" if index == 0 else "MenuButton")
-        self.btn_search.setObjectName("MenuButtonActive" if index == 1 else "MenuButton")
-        self.btn_split.setObjectName("MenuButtonActive" if index == 2 else "MenuButton")
-        self.btn_rename.setObjectName("MenuButtonActive" if index == 3 else "MenuButton")
-        self.btn_config.setObjectName("MenuButtonActive" if index == 4 else "MenuButton") # Bước 6: Đảm bảo hiệu ứng làm sáng nút (Active) hoạt động đúng trên thanh Sidebar khi nhấn nút Config
+        self.btn_assistant.setObjectName("MenuButtonActive" if index == 0 else "MenuButton")
+        self.btn_ocr.setObjectName("MenuButtonActive" if index == 1 else "MenuButton")
+        self.btn_search.setObjectName("MenuButtonActive" if index == 2 else "MenuButton")
+        self.btn_split.setObjectName("MenuButtonActive" if index == 3 else "MenuButton")
+        self.btn_rename.setObjectName("MenuButtonActive" if index == 4 else "MenuButton")
+        self.btn_config.setObjectName("MenuButtonActive" if index == 5 else "MenuButton") # Bước 6: Đảm bảo hiệu ứng làm sáng nút (Active) hoạt động đúng trên thanh Sidebar khi nhấn nút Config
         self.setStyleSheet(self.styleSheet())
         
-        if index == 1: self.page_search.load_ai_presets()
-        elif index == 2: self.page_split.load_ai_presets()
-        elif index == 3: self.page_rename.load_ai_presets()
-        elif index == 4: self.page_config._load_ai_presets_to_combo() # Bước 7: Tự động tải/đồng bộ lại danh sách các Preset từ CSDL lên ComboBox mỗi khi người dùng nhấn chuyển sang trang cấu hình
+        if index == 1: self.btn_ocr.load_ai_presets()
+        elif index == 2: self.page_search.load_ai_presets()
+        elif index == 3: self.page_split.load_ai_presets()
+        elif index == 4: self.page_rename.load_ai_presets()
+        elif index == 5: self.page_config._load_ai_presets_to_combo() # Bước 7: Tự động tải/đồng bộ lại danh sách các Preset từ CSDL lên ComboBox mỗi khi người dùng nhấn chuyển sang trang cấu hình
