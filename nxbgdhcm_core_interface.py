@@ -146,11 +146,13 @@ class MainWindow(QMainWindow):
         self.btn_search.setObjectName("MenuButtonActive" if index == 2 else "MenuButton")
         self.btn_split.setObjectName("MenuButtonActive" if index == 3 else "MenuButton")
         self.btn_rename.setObjectName("MenuButtonActive" if index == 4 else "MenuButton")
-        self.btn_config.setObjectName("MenuButtonActive" if index == 5 else "MenuButton") # Bước 6: Đảm bảo hiệu ứng làm sáng nút (Active) hoạt động đúng trên thanh Sidebar khi nhấn nút Config
+        self.btn_config.setObjectName("MenuButtonActive" if index == 5 else "MenuButton")
         self.setStyleSheet(self.styleSheet())
         
-        if index == 1: self.btn_ocr.load_ai_presets()
+        # Đồng bộ nạp lại các Preset AI cho đúng trang tương ứng khi click chuyển Tab
+        if index == 0: self.page_assistant.load_ai_presets() # Nạp cho trợ lý khi ở index 0
+        elif index == 1: pass # Trang OCR tự nạp ngầm khi khởi chạy ứng dụng
         elif index == 2: self.page_search.load_ai_presets()
         elif index == 3: self.page_split.load_ai_presets()
         elif index == 4: self.page_rename.load_ai_presets()
-        elif index == 5: self.page_config._load_ai_presets_to_combo() # Bước 7: Tự động tải/đồng bộ lại danh sách các Preset từ CSDL lên ComboBox mỗi khi người dùng nhấn chuyển sang trang cấu hình
+        elif index == 5: self.page_config._load_ai_presets_to_combo()
