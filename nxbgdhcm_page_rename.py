@@ -9,7 +9,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QBrush, QFont, QKeyEvent
 
 from nxbgdhcm_db_manager import db
-from nxbgdhcm_ui_utils import setup_shared_ai_combobox
+from nxbgdhcm_ui_utils import setup_shared_ai_combobox, THEME, TestConnectionWorker
 
 # LỚP MỚI: BẮT SỰ KIỆN PHÍM SPACE TRÊN BẢNG
 class CustomRenameTableWidget(QTableWidget):
