@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
                              QLineEdit, QComboBox, QTextEdit, QSplitter, QListWidget, 
                              QListWidgetItem, QFrame, QMessageBox, QMenu, QInputDialog)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QTextCursor, QFont
+from PyQt6.QtGui import QTextCursor, QFont, QTextCharFormat, QColor
 
 from nxbgdhcm_db_manager import db
 from nxbgdhcm_ui_utils import THEME, setup_shared_ai_combobox
@@ -362,7 +362,6 @@ class PageJobAssistant(QWidget):
         self.chat_history.clear()
         self.canvas_content.clear()
         
-        # [CẢI TIẾN] Sử dụng hàm query tối ưu 1 dòng thay vì loop toàn bộ DB
         curr_session = db.get_aia_session_by_id(self.current_chat_id)
         
         if curr_session:
@@ -383,9 +382,31 @@ class PageJobAssistant(QWidget):
             content = msg['content'].replace('\n', '<br>')
             
             if role == "user":
-                self.chat_history.append(f"<div style='margin-top: 10px;'><b style='color:#2563eb;'>Bạn:</b><br>{content}</div>")
+                # Thụt lề phải bằng cách chèn cột trống 2% ở cuối bảng
+                self.chat_history.append(
+                    f"<table width='100%' border='0' cellspacing='0' cellpadding='0' style='margin-top: 5px; margin-bottom: 5px;'>"
+                    f"  <tr>"
+                    f"    <td width='25%'></td>"
+                    f"    <td width='73%' bgcolor='#dbeafe' style='color: #1e3a8a; font-size: 16px; padding: 12px; border-radius: 6px; font-family: \"Segoe UI\", Arial;'>"
+                    f"      <b>👤 Bạn:</b><br/>{content}"
+                    f"    </td>"
+                    f"    <td width='2%'></td>"
+                    f"  </tr>"
+                    f"</table>"
+                )
             elif role == "assistant":
-                self.chat_history.append(f"<div style='margin-top: 10px;'><b style='color:#10B981;'>A.I:</b><br>{content}</div><br>")
+                # AI nằm bên trái, chèn cột trống 25% ở cuối bảng để đẩy khoảng trống sang phải
+                self.chat_history.append(
+                    f"<table width='100%' border='0' cellspacing='0' cellpadding='0' style='margin-top: 5px; margin-bottom: 5px;'>"
+                    f"  <tr>"
+                    f"    <td width='2%'></td>"
+                    f"    <td width='73%' bgcolor='#f3f4f6' style='color: #2d3748; font-size: 16px; padding: 12px; border-radius: 6px; font-family: \"Segoe UI\", Arial;'>"
+                    f"      <b style='color: #10B981;'>🤖 AI-NXBGDHCM:</b><br/>{content}"
+                    f"    </td>"
+                    f"    <td width='25%'></td>"
+                    f"  </tr>"
+                    f"</table>"
+                )
                 
         self.chat_history.ensureCursorVisible()
         self._is_loading_history = False
@@ -395,16 +416,44 @@ class PageJobAssistant(QWidget):
     # =========================================================================
     def append_chat_html(self, text, role):
         formatted_text = text.replace('\n', '<br>')
+        
         if role == "user":
-            self.chat_history.append(f"<div style='margin-top: 10px;'><b style='color:#2563eb;'>Bạn:</b><br>{formatted_text}</div>")
+            self.chat_history.append(
+                f"<table width='100%' border='0' cellspacing='0' cellpadding='0' style='margin-top: 5px; margin-bottom: 5px;'>"
+                f"  <tr>"
+                f"    <td width='25%'></td>"
+                f"    <td width='73%' bgcolor='#dbeafe' style='color: #1e3a8a; font-size: 16px; padding: 12px; border-radius: 6px; font-family: \"Segoe UI\", Arial;'>"
+                f"      <b>👤 Bạn:</b><br/>{formatted_text}"
+                f"    </td>"
+                f"    <td width='2%'></td>"
+                f"  </tr>"
+                f"</table>"
+            )
         elif role == "ai_start":
-            self.chat_history.append(f"<div style='margin-top: 10px;'><b style='color:#10B981;'>A.I:</b><br></div>")
+            # Thêm <br/> ở cuối để ép luồng chữ thô rớt xuống hàng, không bị dính sát vào dấu hai chấm
+            self.chat_history.append(
+                f"<div style='margin-top: 10px; font-family: \"Segoe UI\", Arial;'>"
+                f"  <b style='color: #10B981; font-size: 16px;'>🤖 AI-NXBGDHCM:</b><br/>"
+                f"</div>"
+            )
+            
         self.chat_history.ensureCursorVisible()
 
     def append_chat_stream(self, chunk):
         cursor = self.chat_history.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
+        
+        # TUYỆT CHIÊU: Khóa định dạng của luồng chữ thô
+        # Ép chữ trở về màu xám đen, bỏ in đậm, size chuẩn để không bị nhiễm format từ dòng tiêu đề
+        char_format = QTextCharFormat()
+        char_format.setFontWeight(QFont.Weight.Normal)
+        char_format.setForeground(QColor("#333333"))
+        char_format.setFontFamilies(["Segoe UI", "Arial"])
+        char_format.setFontPointSize(12) # Cỡ 12 point của Qt tương đương với 16px của HTML
+        
+        cursor.setCharFormat(char_format)
         cursor.insertText(chunk)
+        
         self.chat_history.setTextCursor(cursor)
         self.chat_history.ensureCursorVisible()
         self.current_ai_response += chunk
@@ -510,8 +559,6 @@ class PageJobAssistant(QWidget):
         if self.current_ai_response:
             db.save_aia_chat_message(self.current_chat_id, "assistant", self.current_ai_response)
             
-        self.append_chat_stream("\n\n")
-        
         self.chat_input.setEnabled(True)
         self.chat_input.setPlaceholderText("Nhập tin nhắn hoặc nội dung công việc cần trợ lý hỗ trợ...")
         
@@ -522,10 +569,13 @@ class PageJobAssistant(QWidget):
         self.list_conversations.setEnabled(True)
         self.btn_new_chat.setEnabled(True)
         
+        # ✨ TUYỆT CHIÊU: Tải lại giao diện để biến luồng chữ thô thành Bong bóng table chuẩn chỉ ngay lập tức
+        self.load_current_chat_history()
+        
         self.refresh_chat_list(select_chat_id=self.current_chat_id)
         self.chat_input.setFocus()
 
-        # [CẢI TIẾN] Kích hoạt luồng chưng cất ngầm sau khi đã nhường 500ms cho EventLoop nhả khóa giao diện
+        # Kích hoạt luồng chưng cất ngầm
         QTimer.singleShot(500, self._check_and_run_memory_builder)
 
     def _check_and_run_memory_builder(self):
