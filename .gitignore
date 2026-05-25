@@ -11,6 +11,7 @@ dist/
 logs/
 poppler/
 venv/
+tri_thuc/
 
 # 2. Chặn các file tài liệu, ảnh, slide cấu hình không liên quan trong hình
 *.txt

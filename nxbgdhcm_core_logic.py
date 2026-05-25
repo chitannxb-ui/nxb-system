@@ -36,7 +36,7 @@ POPPLER_PATH = os.path.join(BASE_DIR, "poppler", "Library", "bin")
 
 class OCRLogic:
     def __init__(self):
-        self.running_states = {"ocr": False, "split": False, "rename": False, "search": False}
+        self.running_states = {"ocr": False, "split": False, "rename": False, "search": False, "job_assistant_chat": False}
         if not os.path.exists(TEMP_DIR): os.makedirs(TEMP_DIR)
             
     def get_missing_libs(self):

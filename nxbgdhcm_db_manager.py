@@ -101,6 +101,8 @@ class DBManager:
                 '''CREATE TABLE IF NOT EXISTS tao_van_ban (ID INT AUTO_INCREMENT PRIMARY KEY, Person_key VARCHAR(255), thoi_gian TIMESTAMP DEFAULT CURRENT_TIMESTAMP, ten_van_ban VARCHAR(255), noi_dung LONGTEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS Tach_file (MD5 VARCHAR(255) NOT NULL, Trang INT NOT NULL, Toan_van LONGTEXT DEFAULT NULL, Nhan_xet VARCHAR(50), PRIMARY KEY (MD5, Trang)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
                 '''CREATE TABLE IF NOT EXISTS Lich_Su_Ten_File (ID INT AUTO_INCREMENT PRIMARY KEY, Person_key VARCHAR(255), MD5 VARCHAR(255), File_Path TEXT, Ten_Hien_Tai TEXT, Ten_Cu TEXT, Thoi_Diem TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;'''
+                '''CREATE TABLE IF NOT EXISTS aia_chat_layer_0 (chat_id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,Person_key VARCHAR(255) NOT NULL,chat_title VARCHAR(255) DEFAULT 'Hội thoại mới',chat_sum_counter INT(11) DEFAULT 0,chat_summary TEXT DEFAULT NULL,chat_datasheet TEXT DEFAULT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,KEY idx_person_updated (Person_key, updated_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
+                '''CREATE TABLE IF NOT EXISTS aia_chat_layer_1 (chat_l1_id BIGINT(20) AUTO_INCREMENT PRIMARY KEY, chat_id BIGINT(20) NOT NULL, role VARCHAR(20) NOT NULL, content LONGTEXT NOT NULL, summared TINYINT(1) DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, KEY idx_chat_created (chat_id, created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;''',
             ]
             for sql in tables_sql: cursor.execute(sql)
 
@@ -422,6 +424,171 @@ class DBManager:
             return row[0] if row else ""
         except:
             return ""
+        finally:
+            if conn and conn.open: conn.close()
+
+    # =========================================================================
+    # BỘ PHÂN HỆ QUẢN LÝ TRÍ NHỚ VÀ HỘI THOẠI TRỢ LÝ ẢO (AIA CHAT LAYERS)
+    # =========================================================================
+
+    def fetch_aia_chat_sessions(self):
+        """Lấy danh sách các cuộc hội thoại hiển thị lên Sidebar trái (Mới nhất lên đầu)"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor(pymysql.cursors.DictCursor)
+            cursor.execute("""
+                SELECT chat_id, chat_title, chat_sum_counter, chat_total_messages, chat_summary, chat_datasheet 
+                FROM aia_chat_layer_0 
+                WHERE Person_key = %s 
+                ORDER BY updated_at DESC
+            """, (self.person_key,))
+            return cursor.fetchall()
+        except:
+            return []
+        finally:
+            if conn and conn.open: conn.close()
+
+    def create_aia_chat_session(self, title="Hội thoại mới"):
+        """Tạo mới một cuộc hội thoại (Layer 0) và trả về ID vừa sinh tự động"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO aia_chat_layer_0 (Person_key, chat_title, chat_sum_counter, chat_total_messages, chat_summary, chat_datasheet) 
+                VALUES (%s, %s, 0, 0, '', '')
+            """, (self.person_key, title))
+            conn.commit()
+            new_id = cursor.lastrowid
+            cursor.close()
+            return new_id
+        except:
+            return None
+        finally:
+            if conn and conn.open: conn.close()
+
+    def delete_aia_chat_session(self, chat_id):
+        """Xóa cuộc trò chuyện (Tự động xóa tin nhắn ở Layer 1 nhờ ON DELETE CASCADE)"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM aia_chat_layer_0 WHERE chat_id = %s AND Person_key = %s", (chat_id, self.person_key))
+            conn.commit()
+            cursor.close()
+            return True
+        except:
+            return False
+        finally:
+            if conn and conn.open: conn.close()
+
+    def update_aia_chat_title(self, chat_id, title):
+        """Đổi tên tiêu đề cuộc thảo luận hành chính"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE aia_chat_layer_0 SET chat_title = %s WHERE chat_id = %s AND Person_key = %s", (title, chat_id, self.person_key))
+            conn.commit()
+            cursor.close()
+            return True
+        except:
+            return False
+        finally:
+            if conn and conn.open: conn.close()
+
+    def fetch_aia_chat_messages(self, chat_id):
+        """Lấy lịch sử tin nhắn thô của một phiên hội thoại cụ thể đưa lên khung chat giữa"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor(pymysql.cursors.DictCursor)
+            cursor.execute("""
+                SELECT role, content, summared 
+                FROM aia_chat_layer_1 
+                WHERE chat_id = %s 
+                ORDER BY chat_l1_id ASC
+            """, (chat_id,))
+            return cursor.fetchall()
+        except:
+            return []
+        finally:
+            if conn and conn.open: conn.close()
+
+    def save_aia_chat_message(self, chat_id, role, content):
+        """Lưu một tin nhắn mới, đồng thời tịnh tiến bộ đếm counter và tổng số tin nhắn ở Layer 0"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # 1. Lưu tin nhắn vào Layer 1
+            cursor.execute("""
+                INSERT INTO aia_chat_layer_1 (chat_id, role, content, summared) 
+                VALUES (%s, %s, %s, 0)
+            """, (chat_id, role, content))
+            
+            # 2. Tăng bộ đếm counter (để tóm tắt ngầm) VÀ bộ đếm tổng (để hiện UI)
+            cursor.execute("""
+                UPDATE aia_chat_layer_0 
+                SET chat_sum_counter = chat_sum_counter + 1, 
+                    chat_total_messages = chat_total_messages + 1,
+                    updated_at = NOW() 
+                WHERE chat_id = %s AND Person_key = %s
+            """, (chat_id, self.person_key))
+            
+            conn.commit()
+            cursor.close()
+            return True
+        except:
+            return False
+        finally:
+            if conn and conn.open: conn.close()
+
+    def fetch_unsummarized_messages(self, chat_id):
+        """Lấy ra danh sách các tin nhắn có trạng thái chưa tóm tắt (summared = 0) để đưa cho luồng ngầm xử lý"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor(pymysql.cursors.DictCursor)
+            cursor.execute("""
+                SELECT chat_l1_id, role, content 
+                FROM aia_chat_layer_1 
+                WHERE chat_id = %s AND summared = 0 
+                ORDER BY chat_l1_id ASC
+            """, (chat_id,))
+            return cursor.fetchall()
+        except:
+            return []
+        finally:
+            if conn and conn.open: conn.close()
+
+    def update_aia_memory(self, chat_id, new_summary, new_datasheet, processed_l1_ids):
+        """Hàm chưng cất trí nhớ: Cập nhật Summary, Sổ số liệu mới, reset counter về 0 và chốt cờ l1_id thành 1"""
+        if not processed_l1_ids: return False
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # 1. Ghi đè bộ nhớ cô đọng và đưa counter về vạch xuất phát
+            cursor.execute("""
+                UPDATE aia_chat_layer_0 
+                SET chat_summary = %s, chat_datasheet = %s, chat_sum_counter = 0 
+                WHERE chat_id = %s AND Person_key = %s
+            """, (new_summary, new_datasheet, chat_id, self.person_key))
+            
+            # 2. Đóng cờ báo hiệu các tin nhắn này đã được tóm tắt
+            format_strings = ','.join(['%s'] * len(processed_l1_ids))
+            query = f"UPDATE aia_chat_layer_1 SET summared = 1 WHERE chat_l1_id IN ({format_strings}) AND chat_id = %s"
+            cursor.execute(query, tuple(processed_l1_ids) + (chat_id,))
+            
+            conn.commit()
+            cursor.close()
+            return True
+        except:
+            return False
         finally:
             if conn and conn.open: conn.close()
 
