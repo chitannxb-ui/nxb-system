@@ -25,6 +25,7 @@ class DBManager:
     def __init__(self):
         self.mac_address, self.computer_name, self.user_name = "", "", ""
         self.danh_xung, self.ho_ten, self.chuc_vu, self.phong_ban = "Bạn", "", "CBNV", "NXBGDHCM"
+        self.cong_tac = ""
         self.person_key = "" 
         
     def init_person_key(self):
@@ -115,6 +116,7 @@ class DBManager:
                 self.ho_ten = user_row[5] or ""
                 self.chuc_vu = user_row[6] or "CBNV"
                 self.phong_ban = user_row[7] or "NXBGDHCM"
+                self.cong_tac = user_row[8] or ""
 
             cursor.execute("SELECT COUNT(*) FROM ket_noi_ai")
             if cursor.fetchone()[0] == 0:
@@ -431,6 +433,23 @@ class DBManager:
     # BỘ PHÂN HỆ QUẢN LÝ TRÍ NHỚ VÀ HỘI THOẠI TRỢ LÝ ẢO (AIA CHAT LAYERS)
     # =========================================================================
 
+    def get_aia_session_by_id(self, chat_id):
+        """Chỉ truy vấn đích danh 1 phiên chat để tối ưu hiệu năng"""
+        conn = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor(pymysql.cursors.DictCursor)
+            cursor.execute("""
+                SELECT chat_id, chat_title, chat_sum_counter, chat_total_messages, chat_summary, chat_datasheet 
+                FROM aia_chat_layer_0 
+                WHERE chat_id = %s AND Person_key = %s 
+            """, (chat_id, self.person_key))
+            return cursor.fetchone()
+        except:
+            return None
+        finally:
+            if conn and conn.open: conn.close()
+    
     def fetch_aia_chat_sessions(self):
         """Lấy danh sách các cuộc hội thoại hiển thị lên Sidebar trái (Mới nhất lên đầu)"""
         conn = None
@@ -591,5 +610,5 @@ class DBManager:
             return False
         finally:
             if conn and conn.open: conn.close()
-            
+
 db = DBManager()

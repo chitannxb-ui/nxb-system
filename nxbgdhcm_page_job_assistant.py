@@ -3,7 +3,7 @@ import json
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
                              QLineEdit, QComboBox, QTextEdit, QSplitter, QListWidget, 
                              QListWidgetItem, QFrame, QMessageBox, QMenu, QInputDialog)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QTextCursor, QFont
 
 from nxbgdhcm_db_manager import db
@@ -51,11 +51,10 @@ class JobAssistantChatThread(QThread):
             self.finished_signal.emit()
 
 # =========================================================================
-# 2. LUỒNG NGẦM TỰ ĐỘNG ĐẶT TÊN HỘI THOẠI (AUTO-TITLE GENERATOR)
+# 2. LUỒNG NGẦM TỰ ĐỘNG ĐẶT TÊN HỘI THOẠI 
 # =========================================================================
 class TitleGeneratorThread(QThread):
-    # SỬA LỖI Ở ĐÂY: Đổi 'str' đầu tiên thành 'int' vì chat_id giờ là số nguyên
-    title_generated_signal = pyqtSignal(int, str) # chat_id, new_title
+    title_generated_signal = pyqtSignal(int, str) 
 
     def __init__(self, logic, chat_id, first_user_message, ai_config):
         super().__init__()
@@ -65,7 +64,6 @@ class TitleGeneratorThread(QThread):
         self.ai_config = ai_config
 
     def run(self):
-        # Prompt cứng được gài trực tiếp trong code theo yêu cầu
         prompt = f"Hãy đóng vai một thư ký. Đọc câu hỏi sau của người dùng và tạo ra một TIÊU ĐỀ ngắn gọn (tối đa 6 chữ) thể hiện chủ đề. CHỈ TRẢ VỀ TIÊU ĐỀ, KHÔNG GIẢI THÍCH THÊM.\nCâu hỏi: {self.first_user_message}"
         
         full_response = ""
@@ -77,38 +75,34 @@ class TitleGeneratorThread(QThread):
             
         new_title = full_response.strip().replace('"', '').replace('\n', '')
         if new_title:
-            from nxbgdhcm_db_manager import db
             db.update_aia_chat_title(self.chat_id, new_title)
             self.title_generated_signal.emit(self.chat_id, new_title)
 
 # =========================================================================
-# 3. LUỒNG CHẠY NGẦM CHƯNG CẤT TRÍ NHỚ (BACKGROUND MEMORY BUILDER)
+# 3. LUỒNG CHẠY NGẦM CHƯNG CẤT TRÍ NHỚ
 # =========================================================================
 class MemoryBuilderThread(QThread):
-    finished_signal = pyqtSignal(bool, str) # success, log_message
+    finished_signal = pyqtSignal(bool, str) 
 
-    def __init__(self, logic, chat_id, ai_config):
+    def __init__(self, logic, chat_id, ai_config, prompt_template):
         super().__init__()
         self.logic = logic
         self.chat_id = chat_id
         self.ai_config = ai_config
+        self.prompt_template = prompt_template
 
     def run(self):
-        # 1. Lấy danh sách tin nhắn chưa tóm tắt (summared = 0)
         msgs = db.fetch_unsummarized_messages(self.chat_id)
         if not msgs:
             self.finished_signal.emit(False, "Không có tin nhắn mới cần tóm tắt.")
             return
 
-        # 2. Lấy bộ nhớ cũ từ Layer 0
-        sessions = db.fetch_aia_chat_sessions()
-        curr_s = next((s for s in sessions if s['chat_id'] == self.chat_id), None)
+        curr_s = db.get_aia_session_by_id(self.chat_id)
         if not curr_s: return
 
         old_summary = curr_s.get('chat_summary') or ""
         old_datasheet = curr_s.get('chat_datasheet') or ""
 
-        # 3. Ghép chuỗi tin nhắn mới để AI đọc
         new_msg_str = ""
         processed_l1_ids = []
         for m in msgs:
@@ -116,16 +110,10 @@ class MemoryBuilderThread(QThread):
             role_str = "Người dùng" if m['role'] == 'user' else "Trợ lý AI"
             new_msg_str += f"{role_str}: {m['content']}\n"
 
-        # 4. Đọc Prompt từ CSDL
-        prompt_template = db.get_prompt('aia_systemprompt_memory')
-        if not prompt_template:
-            prompt_template = 'Nhiệm vụ của bạn là chưng cất trí nhớ. Gộp tóm tắt cũ và tin nhắn mới. Trích xuất số liệu thành "Key = Value;".\nTRẢ VỀ JSON: {"summary": "...", "datasheet": "..."}\n[TÓM TẮT CŨ]: {old_summary}\n[SỔ SỐ LIỆU CŨ]: {old_datasheet}\n[TIN NHẮN MỚI]:\n{new_messages}'
+        final_prompt = self.prompt_template.replace('{old_summary}', old_summary)\
+                                           .replace('{old_datasheet}', old_datasheet)\
+                                           .replace('{new_messages}', new_msg_str)
 
-        final_prompt = prompt_template.replace('{old_summary}', old_summary)\
-                                      .replace('{old_datasheet}', old_datasheet)\
-                                      .replace('{new_messages}', new_msg_str)
-
-        # 5. Gọi AI (Chạy ngầm)
         full_response = ""
         gen = self.logic.call_ai_stream_generator(
             self.ai_config['URL'], self.ai_config['Model_Name'], self.ai_config['API_Key'], final_prompt
@@ -133,7 +121,6 @@ class MemoryBuilderThread(QThread):
         for chunk in gen:
             full_response += chunk
 
-        # 6. Bóc tách JSON và Lưu vào CSDL
         ai_data = self.logic.extract_json(full_response)
         if ai_data and ('summary' in ai_data or 'datasheet' in ai_data):
             new_sum = str(ai_data.get('summary', old_summary)).strip()
@@ -155,12 +142,21 @@ class PageJobAssistant(QWidget):
         
         self.current_chat_id = None
         self.current_ai_response = ""
-        self.chat_history_data = [] 
         self._is_loading_history = False 
+        
+        # [CẢI TIẾN] Cache prompt vào RAM để tối ưu vòng lặp truy vấn MySQL
+        self._cached_prompts = {}
         
         self.init_ui()
         self.load_ai_presets()
         self.refresh_chat_list()
+
+    def get_cached_prompt(self, key, default_val=""):
+        """Hàm lấy prompt từ RAM, nếu chưa có mới gọi Database"""
+        if key not in self._cached_prompts:
+            val = db.get_prompt(key)
+            self._cached_prompts[key] = val if val else default_val
+        return self._cached_prompts[key]
 
     def init_ui(self):
         self.main_layout = QVBoxLayout(self)
@@ -195,11 +191,8 @@ class PageJobAssistant(QWidget):
         self.btn_new_chat.clicked.connect(self.on_new_chat_clicked)
         
         self.list_conversations = QListWidget()
-        # [CẢI TIẾN 1]: Chữ trong danh sách to hơn, rõ ràng hơn
         self.list_conversations.setStyleSheet(f"font-size: 15px; padding: 5px; border: 1px solid {THEME['border_color']}; border-radius: 3px;")
         self.list_conversations.itemSelectionChanged.connect(self.on_conversation_changed)
-        
-        # [CẢI TIẾN 2]: Bật Context Menu (Click phải chuột)
         self.list_conversations.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_conversations.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -242,7 +235,6 @@ class PageJobAssistant(QWidget):
         self.chat_input.setStyleSheet("border: none; padding: 5px;")
         self.chat_input.returnPressed.connect(self.handle_action_btn)
         
-        # [CẢI TIẾN 3]: Nút 2 trong 1 (Gửi / Dừng)
         self.btn_action = QPushButton("Gửi ➢")
         self.btn_action.setFixedWidth(100)
         self.btn_action.setStyleSheet("background-color: #3b82f6; color: white; font-weight: bold; border-radius: 3px; padding: 6px 15px;")
@@ -277,7 +269,7 @@ class PageJobAssistant(QWidget):
         col3_layout.addWidget(self.canvas_content)
         self.cols_splitter.addWidget(col3_widget)
 
-        self.cols_splitter.setSizes([160, 360, 240]) # Nới rộng cột trái một chút cho tên hiển thị thoải mái
+        self.cols_splitter.setSizes([160, 360, 240])
         self.main_layout.addWidget(self.cols_splitter, 1)
 
     # =========================================================================
@@ -296,7 +288,6 @@ class PageJobAssistant(QWidget):
         for s in sessions:
             c_id = s['chat_id']
             title = s['chat_title']
-            # SỬA LẠI: Lấy tổng số tin nhắn thay vì số tin chưa tóm tắt
             total_msgs = s.get('chat_total_messages', 0)
             
             display_text = f"🔹 {title}"
@@ -322,7 +313,6 @@ class PageJobAssistant(QWidget):
             self.canvas_content.clear()
 
     def show_context_menu(self, pos):
-        """Xử lý Click chuột phải để Đổi tên / Xóa"""
         item = self.list_conversations.itemAt(pos)
         if not item: return
 
@@ -337,7 +327,6 @@ class PageJobAssistant(QWidget):
         chat_id = item.data(Qt.ItemDataRole.UserRole)
         
         if action == rename_action:
-            # Tách lấy tên gốc (bỏ icon 🔹 và bộ đếm)
             old_name = item.text().split("🔹 ")[-1].split(" (")[0]
             new_name, ok = QInputDialog.getText(self, "Đổi tên", "Nhập tên cuộc hội thoại mới:", QLineEdit.EchoMode.Normal, old_name)
             if ok and new_name.strip():
@@ -348,7 +337,6 @@ class PageJobAssistant(QWidget):
             reply = QMessageBox.question(self, "Xóa", "Xóa vĩnh viễn cuộc trò chuyện này và toàn bộ lịch sử?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 if db.delete_aia_chat_session(chat_id):
-                    # Nếu đang mở khung chat bị xóa, dọn dẹp màn hình
                     if self.current_chat_id == chat_id:
                         self.current_chat_id = None
                     self.refresh_chat_list(select_chat_id=self.current_chat_id)
@@ -374,8 +362,8 @@ class PageJobAssistant(QWidget):
         self.chat_history.clear()
         self.canvas_content.clear()
         
-        sessions = db.fetch_aia_chat_sessions()
-        curr_session = next((s for s in sessions if s['chat_id'] == self.current_chat_id), None)
+        # [CẢI TIẾN] Sử dụng hàm query tối ưu 1 dòng thay vì loop toàn bộ DB
+        curr_session = db.get_aia_session_by_id(self.current_chat_id)
         
         if curr_session:
             summary = curr_session.get('chat_summary') or '[Trống - Chưa thực hiện tích lũy]'
@@ -392,7 +380,6 @@ class PageJobAssistant(QWidget):
         messages = db.fetch_aia_chat_messages(self.current_chat_id)
         for msg in messages:
             role = msg['role']
-            # [CẢI TIẾN 4]: Thay thế \n thành thẻ <br> để HTML hiểu rớt dòng khi Load DB
             content = msg['content'].replace('\n', '<br>')
             
             if role == "user":
@@ -407,7 +394,6 @@ class PageJobAssistant(QWidget):
     # LUỒNG ĐIỀU PHỐI ĐẶC VỤ CHAT & CƠ CHẾ NÚT 2 TRONG 1
     # =========================================================================
     def append_chat_html(self, text, role):
-        # Đảm bảo hiển thị rớt dòng khi người dùng nhập Text xuống dòng
         formatted_text = text.replace('\n', '<br>')
         if role == "user":
             self.chat_history.append(f"<div style='margin-top: 10px;'><b style='color:#2563eb;'>Bạn:</b><br>{formatted_text}</div>")
@@ -416,7 +402,6 @@ class PageJobAssistant(QWidget):
         self.chat_history.ensureCursorVisible()
 
     def append_chat_stream(self, chunk):
-        # Hàm insertText xử lý ký tự \n thô (RAW) rất tốt mà không cần <br>
         cursor = self.chat_history.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         cursor.insertText(chunk)
@@ -432,7 +417,6 @@ class PageJobAssistant(QWidget):
         self.canvas_content.ensureCursorVisible()
 
     def handle_action_btn(self):
-        """Hàm tích hợp xử lý Nút 2 trong 1 (Gửi / Dừng)"""
         if self.logic.is_running("job_assistant_chat"):
             self.stop_message()
         else:
@@ -442,7 +426,6 @@ class PageJobAssistant(QWidget):
         user_text = self.chat_input.text().strip()
         if not user_text: return
 
-        # Thêm dòng này để chặn việc bấm Enter/Click liên tục
         if self.logic.is_running("job_assistant_chat"): return
         
         if not self.current_chat_id:
@@ -460,37 +443,31 @@ class PageJobAssistant(QWidget):
         db.save_aia_chat_message(self.current_chat_id, "user", user_text)
         self.append_chat_html("", "ai_start")
         
-        self.chat_input.setEnabled(False)
-        self.chat_input.setPlaceholderText("Trợ lý AI đang suy nghĩ hành động và kết xuất văn bản...")
-
-        # 2. Thực hiện Khóa cứng cửa sổ chat nhập liệu (UI Locking Pattern)
+        # [CẢI TIẾN] Xóa dòng trùng lặp mã khóa UI
         self.chat_input.setEnabled(False)
         self.chat_input.setPlaceholderText("Trợ lý AI đang suy nghĩ hành động và kết xuất văn bản...")
         
-        # Đổi Nút Gửi thành Nút Dừng
         self.btn_action.setText("Dừng ⏹")
         self.btn_action.setStyleSheet(f"background-color: {THEME['accent_red']}; color: white; font-weight: bold; border-radius: 3px; padding: 6px 15px;")
+        self.btn_action.setEnabled(False)
+        QTimer.singleShot(1500, lambda: self.btn_action.setEnabled(True))
         
-        # [BỔ SUNG MỚI] Khóa luôn thanh Danh sách chat và Nút Tạo mới bên trái
         self.list_conversations.setEnabled(False)
         self.btn_new_chat.setEnabled(False)        
         
-        prompt_1 = db.get_prompt('aia_systemprompt_1')
-        if not prompt_1:
-            prompt_1 = "Bạn là trợ lý ảo của {danh_xung} {ho_ten} tại NXBGDHCM."
-            
+        # [CẢI TIẾN] Gọi Prompt từ RAM thay vì chọc CSDL liên tục
+        prompt_1 = self.get_cached_prompt('aia_systemprompt_1', "Bạn là trợ lý ảo của {danh_xung} {ho_ten} tại NXBGDHCM.")
+        # [CẢI TIẾN] Chỉnh sửa biến thay thế {cong_tac} chính xác từ db.cong_tac
         prompt_1 = prompt_1.replace('{danh_xung}', db.danh_xung)\
                            .replace('{ho_ten}', db.ho_ten)\
                            .replace('{chuc_vu}', db.chuc_vu)\
                            .replace('{phong_ban}', db.phong_ban)\
-                           .replace('{cong_tac}', db.phong_ban) 
+                           .replace('{cong_tac}', db.cong_tac) 
                            
-        prompt_2 = db.get_prompt('aia_systemprompt_2') or ""
+        prompt_2 = self.get_cached_prompt('aia_systemprompt_2')
 
-        sessions = db.fetch_aia_chat_sessions()
-        curr_s = next((s for s in sessions if s['chat_id'] == self.current_chat_id), None)
+        curr_s = db.get_aia_session_by_id(self.current_chat_id)
         
-        # Logic 1: Gắn ngữ cảnh trí nhớ nếu có
         memory_instruction = ""
         if curr_s:
             c_summary = curr_s.get('chat_summary') or ""
@@ -500,18 +477,13 @@ class PageJobAssistant(QWidget):
 
         final_system_prompt = f"{prompt_1}\n{prompt_2}{memory_instruction}"
 
-        # Logic 2: Kích hoạt Auto-Title nếu đây là câu chat đầu tiên
         if curr_s and curr_s['chat_title'] == 'Hội thoại mới' and curr_s['chat_sum_counter'] <= 1:
             self.title_thread = TitleGeneratorThread(self.logic, self.current_chat_id, user_text, config)
             self.title_thread.title_generated_signal.connect(self.on_title_generated)
             self.title_thread.start()
 
-        # Đọc tối đa 15 tin nhắn lịch sử thô gần nhất trong Layer 1 để duy trì mạch chat trực diện
-        # [CẢI TIẾN TRÍ NHỚ]: CHỈ lấy những tin nhắn CHƯA được tóm tắt (summared = 0)
-        # Việc này ngăn chặn tuyệt đối tình trạng chồng chéo ngữ cảnh (Context Overlap)
         raw_msgs = db.fetch_unsummarized_messages(self.current_chat_id)
         
-        # Vẫn giữ chốt chặn an toàn phòng khi luồng ngầm bị lỗi không chạy được
         MAX_HISTORY = 15
         if len(raw_msgs) > MAX_HISTORY:
             raw_msgs = raw_msgs[-MAX_HISTORY:]
@@ -542,6 +514,7 @@ class PageJobAssistant(QWidget):
         
         self.chat_input.setEnabled(True)
         self.chat_input.setPlaceholderText("Nhập tin nhắn hoặc nội dung công việc cần trợ lý hỗ trợ...")
+        
         self.btn_action.setEnabled(True)
         self.btn_action.setText("Gửi ➢")
         self.btn_action.setStyleSheet("background-color: #3b82f6; color: white; font-weight: bold; border-radius: 3px; padding: 6px 15px;")
@@ -552,32 +525,32 @@ class PageJobAssistant(QWidget):
         self.refresh_chat_list(select_chat_id=self.current_chat_id)
         self.chat_input.setFocus()
 
-        # ==========================================================
-        # KÍCH HOẠT LUỒNG CHƯNG CẤT TRÍ NHỚ (NẾU ĐỦ 10 TIN NHẮN)
-        # ==========================================================
-        sessions = db.fetch_aia_chat_sessions()
-        curr_s = next((s for s in sessions if s['chat_id'] == self.current_chat_id), None)
-        
-        # Nếu counter >= 10, kích hoạt luồng ngầm
+        # [CẢI TIẾN] Kích hoạt luồng chưng cất ngầm sau khi đã nhường 500ms cho EventLoop nhả khóa giao diện
+        QTimer.singleShot(500, self._check_and_run_memory_builder)
+
+    def _check_and_run_memory_builder(self):
+        """Hàm con đóng vai trò kích hoạt luồng dọn rác bộ nhớ sau khi UI đã được giải phóng"""
+        curr_s = db.get_aia_session_by_id(self.current_chat_id)
         if curr_s and curr_s['chat_sum_counter'] >= 10:
             preset_id = self.combo_server.currentData()
             config = db.get_ai_config_by_id(preset_id)
             if config:
+                prompt_template = self.get_cached_prompt(
+                    'aia_systemprompt_memory', 
+                    'Nhiệm vụ của bạn là chưng cất trí nhớ. Gộp tóm tắt cũ và tin nhắn mới. Trích xuất số liệu thành "Key = Value;".\nTRẢ VỀ JSON: {"summary": "...", "datasheet": "..."}\n[TÓM TẮT CŨ]: {old_summary}\n[SỔ SỐ LIỆU CŨ]: {old_datasheet}\n[TIN NHẮN MỚI]:\n{new_messages}'
+                )
                 self.append_canvas_debug("\n[HỆ THỐNG]: Đã chạm ngưỡng 10 tin nhắn. Đang chạy ngầm AI chưng cất Sổ số liệu...\n")
-                self.memory_thread = MemoryBuilderThread(self.logic, self.current_chat_id, config)
+                self.memory_thread = MemoryBuilderThread(self.logic, self.current_chat_id, config, prompt_template)
                 self.memory_thread.finished_signal.connect(self.on_memory_built)
                 self.memory_thread.start()
 
     def on_memory_built(self, success, log_message):
-        """Xử lý tín hiệu khi luồng chạy ngầm chưng cất trí nhớ hoàn tất"""
         if success:
             self.append_canvas_debug(f"\n[HỆ THỐNG]: {log_message}\n")
-            # Tải lại màn hình để hiển thị Sổ số liệu mới ngay lập tức
             self.load_current_chat_history()
             self.refresh_chat_list(select_chat_id=self.current_chat_id)
         else:
             self.append_canvas_debug(f"\n[HỆ THỐNG - LỖI]: {log_message}\n")
 
     def on_title_generated(self, chat_id, new_title):
-        # Refresh lại danh sách hiển thị tên mới nếu nó là chat hiện tại
         self.refresh_chat_list(select_chat_id=self.current_chat_id)
