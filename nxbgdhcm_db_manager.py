@@ -591,5 +591,5 @@ class DBManager:
             return False
         finally:
             if conn and conn.open: conn.close()
-
+            
 db = DBManager()
