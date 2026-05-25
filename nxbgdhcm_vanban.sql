@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th5 21, 2026 lúc 08:26 AM
--- Phiên bản máy phục vụ: 12.2.2-MariaDB
--- Phiên bản PHP: 8.0.30
+-- Host: 127.0.0.1
+-- Generation Time: May 25, 2026 at 05:29 AM
+-- Server version: 12.2.2-MariaDB
+-- PHP Version: 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,13 +18,46 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Cơ sở dữ liệu: `nxbgdhcm_vanban`
+-- Database: `nxbgdhcm_vanban`
 --
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `cau_hinh`
+-- Table structure for table `aia_chat_layer_0`
+--
+
+CREATE TABLE `aia_chat_layer_0` (
+  `chat_id` bigint(20) NOT NULL COMMENT 'Mã cuộc hội thoại (Khóa chính)',
+  `Person_key` varchar(255) NOT NULL COMMENT 'Chủ sở hữu',
+  `chat_title` varchar(255) DEFAULT 'Hội thoại mới' COMMENT 'Tên cuộc hội thoại hiển thị Sidebar',
+  `chat_sum_counter` int(11) DEFAULT 0 COMMENT 'Đếm số tin nhắn chưa tóm tắt',
+  `chat_total_messages` int(11) DEFAULT 0 COMMENT 'Tổng số tin nhắn thực tế của hội thoại',
+  `chat_summary` text DEFAULT NULL COMMENT 'Tóm tắt bối cảnh (Dưới 2000 chữ)',
+  `chat_datasheet` text DEFAULT NULL COMMENT 'Sổ lưu số liệu: Key = Value Unit; (Tối đa 5000 chữ)',
+  `created_at` datetime DEFAULT current_timestamp() COMMENT 'Giờ tạo',
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT 'Giờ có tin nhắn mới nhất'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `aia_chat_layer_1`
+--
+
+CREATE TABLE `aia_chat_layer_1` (
+  `chat_l1_id` bigint(20) NOT NULL,
+  `chat_id` bigint(20) NOT NULL COMMENT 'Liên kết với bảng Layer 0',
+  `role` varchar(20) NOT NULL COMMENT 'user, assistant, system',
+  `content` longtext NOT NULL COMMENT 'Nội dung tin nhắn',
+  `summared` tinyint(1) DEFAULT 0 COMMENT '0: Chưa tóm tắt, 1: Đã đưa vào summary',
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `cau_hinh`
 --
 
 CREATE TABLE `cau_hinh` (
@@ -37,7 +70,7 @@ CREATE TABLE `cau_hinh` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `cau_hinh_prompt`
+-- Table structure for table `cau_hinh_prompt`
 --
 
 CREATE TABLE `cau_hinh_prompt` (
@@ -50,7 +83,7 @@ CREATE TABLE `cau_hinh_prompt` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `deleted_documents`
+-- Table structure for table `deleted_documents`
 --
 
 CREATE TABLE `deleted_documents` (
@@ -73,7 +106,7 @@ CREATE TABLE `deleted_documents` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `documents`
+-- Table structure for table `documents`
 --
 
 CREATE TABLE `documents` (
@@ -98,7 +131,7 @@ CREATE TABLE `documents` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `ket_noi_ai`
+-- Table structure for table `ket_noi_ai`
 --
 
 CREATE TABLE `ket_noi_ai` (
@@ -114,7 +147,7 @@ CREATE TABLE `ket_noi_ai` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `lich_su_ten_file`
+-- Table structure for table `lich_su_ten_file`
 --
 
 CREATE TABLE `lich_su_ten_file` (
@@ -130,7 +163,7 @@ CREATE TABLE `lich_su_ten_file` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `loai_van_ban`
+-- Table structure for table `loai_van_ban`
 --
 
 CREATE TABLE `loai_van_ban` (
@@ -143,7 +176,7 @@ CREATE TABLE `loai_van_ban` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `nguoi_dung`
+-- Table structure for table `nguoi_dung`
 --
 
 CREATE TABLE `nguoi_dung` (
@@ -164,7 +197,7 @@ CREATE TABLE `nguoi_dung` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `tach_file`
+-- Table structure for table `tach_file`
 --
 
 CREATE TABLE `tach_file` (
@@ -177,7 +210,7 @@ CREATE TABLE `tach_file` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `tao_van_ban`
+-- Table structure for table `tao_van_ban`
 --
 
 CREATE TABLE `tao_van_ban` (
@@ -191,7 +224,7 @@ CREATE TABLE `tao_van_ban` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `van_ban_mau`
+-- Table structure for table `van_ban_mau`
 --
 
 CREATE TABLE `van_ban_mau` (
@@ -205,110 +238,146 @@ CREATE TABLE `van_ban_mau` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Chỉ mục cho các bảng đã đổ
+-- Indexes for dumped tables
 --
 
 --
--- Chỉ mục cho bảng `cau_hinh`
+-- Indexes for table `aia_chat_layer_0`
+--
+ALTER TABLE `aia_chat_layer_0`
+  ADD PRIMARY KEY (`chat_id`),
+  ADD KEY `idx_person_updated` (`Person_key`,`updated_at`) COMMENT 'Index giúp truy xuất Sidebar cực nhanh';
+
+--
+-- Indexes for table `aia_chat_layer_1`
+--
+ALTER TABLE `aia_chat_layer_1`
+  ADD PRIMARY KEY (`chat_l1_id`),
+  ADD KEY `idx_chat_created` (`chat_id`,`created_at`);
+
+--
+-- Indexes for table `cau_hinh`
 --
 ALTER TABLE `cau_hinh`
   ADD PRIMARY KEY (`Person_key`,`Key_Name`);
 
 --
--- Chỉ mục cho bảng `cau_hinh_prompt`
+-- Indexes for table `cau_hinh_prompt`
 --
 ALTER TABLE `cau_hinh_prompt`
   ADD PRIMARY KEY (`Prompt_Key`);
 
 --
--- Chỉ mục cho bảng `deleted_documents`
+-- Indexes for table `deleted_documents`
 --
 ALTER TABLE `deleted_documents`
   ADD PRIMARY KEY (`md5`,`person_key`);
 
 --
--- Chỉ mục cho bảng `documents`
+-- Indexes for table `documents`
 --
 ALTER TABLE `documents`
   ADD PRIMARY KEY (`md5`,`person_key`);
 ALTER TABLE `documents` ADD FULLTEXT KEY `full_text` (`full_text`);
 
 --
--- Chỉ mục cho bảng `ket_noi_ai`
+-- Indexes for table `ket_noi_ai`
 --
 ALTER TABLE `ket_noi_ai`
   ADD PRIMARY KEY (`ID`);
 
 --
--- Chỉ mục cho bảng `lich_su_ten_file`
+-- Indexes for table `lich_su_ten_file`
 --
 ALTER TABLE `lich_su_ten_file`
   ADD PRIMARY KEY (`ID`);
 
 --
--- Chỉ mục cho bảng `loai_van_ban`
+-- Indexes for table `loai_van_ban`
 --
 ALTER TABLE `loai_van_ban`
   ADD PRIMARY KEY (`ID`);
 
 --
--- Chỉ mục cho bảng `nguoi_dung`
+-- Indexes for table `nguoi_dung`
 --
 ALTER TABLE `nguoi_dung`
   ADD PRIMARY KEY (`Person_key`);
 
 --
--- Chỉ mục cho bảng `tach_file`
+-- Indexes for table `tach_file`
 --
 ALTER TABLE `tach_file`
   ADD PRIMARY KEY (`MD5`,`Trang`);
 
 --
--- Chỉ mục cho bảng `tao_van_ban`
+-- Indexes for table `tao_van_ban`
 --
 ALTER TABLE `tao_van_ban`
   ADD PRIMARY KEY (`ID`);
 ALTER TABLE `tao_van_ban` ADD FULLTEXT KEY `ten_van_ban` (`ten_van_ban`,`noi_dung`);
 
 --
--- Chỉ mục cho bảng `van_ban_mau`
+-- Indexes for table `van_ban_mau`
 --
 ALTER TABLE `van_ban_mau`
   ADD PRIMARY KEY (`id`);
 
 --
--- AUTO_INCREMENT cho các bảng đã đổ
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- AUTO_INCREMENT cho bảng `ket_noi_ai`
+-- AUTO_INCREMENT for table `aia_chat_layer_0`
+--
+ALTER TABLE `aia_chat_layer_0`
+  MODIFY `chat_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'Mã cuộc hội thoại (Khóa chính)';
+
+--
+-- AUTO_INCREMENT for table `aia_chat_layer_1`
+--
+ALTER TABLE `aia_chat_layer_1`
+  MODIFY `chat_l1_id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `ket_noi_ai`
 --
 ALTER TABLE `ket_noi_ai`
   MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `lich_su_ten_file`
+-- AUTO_INCREMENT for table `lich_su_ten_file`
 --
 ALTER TABLE `lich_su_ten_file`
   MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `loai_van_ban`
+-- AUTO_INCREMENT for table `loai_van_ban`
 --
 ALTER TABLE `loai_van_ban`
   MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `tao_van_ban`
+-- AUTO_INCREMENT for table `tao_van_ban`
 --
 ALTER TABLE `tao_van_ban`
   MODIFY `ID` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `van_ban_mau`
+-- AUTO_INCREMENT for table `van_ban_mau`
 --
 ALTER TABLE `van_ban_mau`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `aia_chat_layer_1`
+--
+ALTER TABLE `aia_chat_layer_1`
+  ADD CONSTRAINT `fk_chat_layer_0` FOREIGN KEY (`chat_id`) REFERENCES `aia_chat_layer_0` (`chat_id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
